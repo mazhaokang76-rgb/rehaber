@@ -1,44 +1,56 @@
-export enum Category {
-  REHAB = '运动复健',
-  CORE = '核心训练',
-  CARDIO = '心肺功能',
-  OTHER = '其他训练',
-}
-
 export interface User {
   id: string;
   name: string;
-  phone: string;
+  phone?: string;
   avatar: string;
   loginCount: number;
-  subscriptions: Category[];
+  subscriptions: string[];
+  createdAt: string;
+  stats: {
+    trainingMinutes: number;
+    daysStreak: number;
+    caloriesBurned: number;
+  };
 }
 
-export interface TrainingVideo {
+export interface Video {
   id: string;
   title: string;
-  category: Category;
+  category: 'Rehab' | 'Core' | 'Cardio' | 'Other';
   thumbnail: string;
   duration: string;
   views: number;
+  author: string;
+  authorAvatar: string;
 }
 
-export interface HealthNews {
+export interface NewsItem {
   id: string;
   title: string;
-  category: Category;
+  category: string;
   summary: string;
   coverImage: string;
   date: string;
+  readTime: string;
+  type: 'article' | 'video'; 
 }
 
-export interface CommunityEvent {
+export interface Event {
   id: string;
   title: string;
   location: string;
   time: string;
   image: string;
   likes: number;
-  userAvatar: string;
-  userName: string;
+  joined: boolean;
+  organizer: string;
+  tags: string[];
+}
+
+export enum NavTab {
+  HOME = 'HOME',
+  INFO = 'INFO',
+  COMMUNITY = 'COMMUNITY',
+  TOOLS = 'TOOLS',
+  PROFILE = 'PROFILE'
 }

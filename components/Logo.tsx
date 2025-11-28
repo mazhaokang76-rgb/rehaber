@@ -1,42 +1,49 @@
 import React from 'react';
 
-interface LogoProps {
-  className?: string;
-  showText?: boolean;
-  variant?: 'light' | 'dark';
-}
-
-export const Logo: React.FC<LogoProps> = ({ className = "", showText = true, variant = 'dark' }) => {
-  const textColor = variant === 'light' ? 'text-white' : 'text-gray-900';
-  const subTextColor = variant === 'light' ? 'text-emerald-200' : 'text-emerald-600';
-
+export const Logo: React.FC<{ className?: string }> = ({ className = "h-8 w-8" }) => {
   return (
-    <div className={`flex items-center gap-2 ${className}`}>
-      <div className="relative w-10 h-10 flex items-center justify-center">
-        {/* Animated Background Shape */}
-        <div className="absolute inset-0 bg-gradient-to-tr from-emerald-400 to-teal-300 rounded-xl transform rotate-3 shadow-lg"></div>
-        <div className="absolute inset-0 bg-white/20 rounded-xl backdrop-blur-sm transform -rotate-3"></div>
-        
-        {/* R Icon */}
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="relative w-6 h-6 text-white z-10 transform -skew-x-6">
-          <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
-          <path d="M12 16V3" className="opacity-80" />
-        </svg>
-        
-        {/* Motion dot */}
-        <div className="absolute top-0 right-0 w-3 h-3 bg-yellow-400 rounded-full border-2 border-white shadow-sm z-20 animate-pulse"></div>
-      </div>
+    <svg
+      viewBox="0 0 100 100"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
+    >
+      <defs>
+        <linearGradient id="brandGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#4ade80" />
+          <stop offset="100%" stopColor="#16a34a" />
+        </linearGradient>
+      </defs>
+      {/* Stylized Runner / 'R' Shape */}
+      {/* Head */}
+      <circle cx="65" cy="25" r="10" fill="url(#brandGradient)" />
       
-      {showText && (
-        <div className="flex flex-col leading-none">
-          <span className={`font-black text-xl tracking-tight italic ${textColor}`}>
-            REHABER
-          </span>
-          <span className={`text-[10px] font-bold tracking-widest uppercase ${subTextColor}`}>
-            锐汗步
-          </span>
-        </div>
-      )}
-    </div>
+      {/* Body and Leg swoop representing motion/step */}
+      <path
+        d="M30 35 C 30 35, 55 35, 65 50 C 75 65, 65 85, 50 95"
+        stroke="url(#brandGradient)"
+        strokeWidth="10"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      
+      {/* Trailing leg / Back kick */}
+      <path
+        d="M60 55 L 85 45"
+        stroke="url(#brandGradient)"
+        strokeWidth="10"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      
+      {/* Arm swing */}
+      <path
+        d="M45 45 L 20 60"
+        stroke="url(#brandGradient)"
+        strokeWidth="10"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
   );
 };
