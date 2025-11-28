@@ -1,98 +1,137 @@
+// services/supabase.ts
 import { createClient } from '@supabase/supabase-js';
-import { Category, CommunityEvent, HealthNews, TrainingVideo, User } from '../types';
 
-// Configuration
-const SUPABASE_URL = 'https://qddkookrbyvjjnqjngtv.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_n_GKmtktxCDUEy8wNDDaew_2d9GfNXB';
+// Your Supabase Configuration
+const SUPABASE_URL = 'https://bohwsyaozlnscmgylzub.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJvaHdzeWFvemxuc2NtZ3lsenViIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQzMTQ3NDgsImV4cCI6MjA3OTg5MDc0OH0.F9OfedYqlt3cxmbpuokawfbNolHkkFTxgOiDBkgJCgM';
 
-const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-// --- Fallback Mock Data ---
-// These are used if the Supabase tables are not yet created or connection fails.
-const MOCK_VIDEOS: TrainingVideo[] = [
-  { id: 'v1', title: '膝关节术后康复入门', category: Category.REHAB, thumbnail: 'https://picsum.photos/400/225?random=1', duration: '15:20', views: 1204 },
-  { id: 'v2', title: '十分钟核心燃脂', category: Category.CORE, thumbnail: 'https://picsum.photos/400/225?random=2', duration: '10:00', views: 3400 },
-  { id: 'v3', title: '居家心肺增强操', category: Category.CARDIO, thumbnail: 'https://picsum.photos/400/225?random=3', duration: '22:15', views: 890 },
-  { id: 'v4', title: '办公室肩颈放松', category: Category.REHAB, thumbnail: 'https://picsum.photos/400/225?random=4', duration: '08:45', views: 5600 },
-  { id: 'v5', title: '瑜伽拉伸基础', category: Category.OTHER, thumbnail: 'https://picsum.photos/400/225?random=5', duration: '30:00', views: 2100 },
-];
+// Type definitions
+export interface User {
+  id: string;
+  name: string;
+  phone: string;
+  avatar: string;
+  loginCount: number;
+  subscriptions: string[];
+  createdAt: string;
+  stats: {
+    trainingMinutes: number;
+    daysStreak: number;
+    caloriesBurned: number;
+  };
+}
 
-const MOCK_NEWS: HealthNews[] = [
-  { id: 'n1', title: '运动后为什么需要冷敷？专家解读', category: Category.REHAB, summary: '深入了解冷敷在急性损伤处理中的作用机制...', coverImage: 'https://picsum.photos/200/200?random=11', date: '2023-10-24' },
-  { id: 'n2', title: '提升心肺功能的五种科学方法', category: Category.CARDIO, summary: '除了跑步，还有这些方式可以有效提升你的VO2 Max...', coverImage: 'https://picsum.photos/200/200?random=12', date: '2023-10-22' },
-  { id: 'n3', title: '核心力量对腰椎保护的重要性', category: Category.CORE, summary: '长期久坐人群必看，核心不仅是腹肌...', coverImage: 'https://picsum.photos/200/200?random=13', date: '2023-10-20' },
-];
+export interface Video {
+  id: string;
+  title: string;
+  category: string;
+  thumbnail: string;
+  duration: string;
+  views: number;
+  author: string;
+  authorAvatar: string;
+  publishedAt?: string;
+}
 
-const MOCK_EVENTS: CommunityEvent[] = [
-  { id: 'e1', title: '周末公园晨跑团', location: '朝阳公园', time: '周六 07:00', image: 'https://picsum.photos/300/400?random=21', likes: 45, userAvatar: 'https://picsum.photos/50/50?random=31', userName: 'RunningMan' },
-  { id: 'e2', title: '线上康复讲座：半月板损伤', location: '腾讯会议', time: '周五 20:00', image: 'https://picsum.photos/300/350?random=22', likes: 128, userAvatar: 'https://picsum.photos/50/50?random=32', userName: 'Dr. Li' },
-  { id: 'e3', title: '核心训练挑战赛', location: 'Rehaber 健身馆', time: '周日 14:00', image: 'https://picsum.photos/300/500?random=23', likes: 89, userAvatar: 'https://picsum.photos/50/50?random=33', userName: 'Coach Wang' },
-];
+export interface NewsItem {
+  id: string;
+  title: string;
+  category: string;
+  summary: string;
+  coverImage: string;
+  date: string;
+  readTime: string;
+  type: 'article' | 'video';
+  author?: string;
+  authorAvatar?: string;
+}
 
-// --- Data Mappers (Snake_case DB -> CamelCase App) ---
+export interface Event {
+  id: string;
+  title: string;
+  location: string;
+  time: string;
+  image: string;
+  likes: number;
+  joined: boolean;
+  organizer: string;
+  tags: string[];
+}
 
+// Data mapping functions
 const mapUser = (data: any): User => ({
   id: data.id,
-  name: data.name || 'Rehaber User',
+  name: data.name,
   phone: data.phone,
   avatar: data.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${data.phone}`,
   loginCount: data.login_count || 0,
-  subscriptions: Array.isArray(data.subscriptions) ? data.subscriptions : [],
+  subscriptions: data.subscriptions || [],
+  createdAt: data.created_at,
+  stats: data.stats || { trainingMinutes: 0, daysStreak: 0, caloriesBurned: 0 }
 });
 
-const mapVideo = (data: any): TrainingVideo => ({
+const mapVideo = (data: any): Video => ({
   id: data.id,
   title: data.title,
   category: data.category,
   thumbnail: data.thumbnail,
   duration: data.duration,
   views: data.views || 0,
+  author: data.publishers?.name || '未知作者',
+  authorAvatar: data.publishers?.avatar || 'https://picsum.photos/seed/default/100/100',
+  publishedAt: data.published_at
 });
 
-const mapNews = (data: any): HealthNews => ({
+const mapNews = (data: any): NewsItem => ({
   id: data.id,
   title: data.title,
   category: data.category,
   summary: data.summary,
   coverImage: data.cover_image,
-  date: data.date,
+  date: new Date(data.published_at).toLocaleDateString('zh-CN'),
+  readTime: data.read_time || '5分钟',
+  type: data.type || 'article',
+  author: data.publishers?.name,
+  authorAvatar: data.publishers?.avatar
 });
 
-const mapEvent = (data: any): CommunityEvent => ({
+const mapEvent = (data: any): Event => ({
   id: data.id,
   title: data.title,
   location: data.location,
   time: data.time,
   image: data.image,
   likes: data.likes || 0,
-  userAvatar: data.user_avatar || 'https://picsum.photos/50/50',
-  userName: data.user_name || 'Organizer',
+  joined: false, // This would need user-specific logic
+  organizer: data.publishers?.name || '未知组织者',
+  tags: data.tags || []
 });
 
-// --- Service Methods ---
-
+// Supabase Service
 export const supabaseService = {
   /**
-   * Login or Register a user by phone number.
+   * Login or register a user
    */
   login: async (phone: string, name?: string): Promise<User> => {
     try {
-      // 1. Check if user exists
+      // Check if user exists
       const { data: existingUser, error: findError } = await supabase
         .from('users')
         .select('*')
         .eq('phone', phone)
         .maybeSingle();
 
-      if (findError) {
+      if (findError && findError.code !== 'PGRST116') {
         throw findError;
       }
 
       if (existingUser) {
-        // 2. Update login count
+        // Update login count
         const { data: updatedUser, error: updateError } = await supabase
           .from('users')
-          .update({ login_count: (existingUser.login_count || 0) + 1 })
+          .update({ login_count: existingUser.login_count + 1 })
           .eq('id', existingUser.id)
           .select()
           .single();
@@ -100,102 +139,121 @@ export const supabaseService = {
         if (updateError) throw updateError;
         return mapUser(updatedUser);
       } else {
-        // 3. Create new user
-        const newUserPayload = {
+        // Create new user
+        const newUser = {
           phone,
-          name: name || `User_${phone.slice(-4)}`,
+          name: name || `用户${phone.slice(-4)}`,
           avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${phone}`,
           login_count: 1,
-          subscriptions: [Category.REHAB, Category.CORE], // Default subs
+          subscriptions: ['Rehab', 'Core'],
+          stats: { trainingMinutes: 0, daysStreak: 0, caloriesBurned: 0 }
         };
 
-        const { data: newUser, error: createError } = await supabase
+        const { data: createdUser, error: createError } = await supabase
           .from('users')
-          .insert(newUserPayload)
+          .insert(newUser)
           .select()
           .single();
 
         if (createError) throw createError;
-        return mapUser(newUser);
+        return mapUser(createdUser);
       }
     } catch (error) {
-      console.warn('Supabase Login Error (Falling back to Mock Data):', JSON.stringify(error, null, 2));
-      // Fallback: Return a mock user so the app is usable
-      return {
-        id: 'mock-user-id',
-        name: name || '访客用户',
-        phone: phone,
-        avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${phone}`,
-        loginCount: 1,
-        subscriptions: [Category.REHAB, Category.CORE],
-      };
+      console.error('Login error:', error);
+      throw error;
     }
   },
 
   /**
-   * Fetch videos, optionally filtered by user subscriptions.
+   * Get videos, optionally filtered by subscriptions
    */
-  getVideos: async (subscriptions: Category[]): Promise<TrainingVideo[]> => {
+  getVideos: async (subscriptions?: string[]): Promise<Video[]> => {
     try {
-      let query = supabase.from('videos').select('*');
+      let query = supabase
+        .from('videos')
+        .select(`
+          *,
+          publishers (
+            name,
+            avatar
+          )
+        `)
+        .order('published_at', { ascending: false });
+
       if (subscriptions && subscriptions.length > 0) {
         query = query.in('category', subscriptions);
       }
+
       const { data, error } = await query;
       if (error) throw error;
       return (data || []).map(mapVideo);
     } catch (error) {
-      console.warn('Supabase getVideos Error (Using Mock Data):', error);
-      if (subscriptions.length === 0) return MOCK_VIDEOS;
-      return MOCK_VIDEOS.filter(v => subscriptions.includes(v.category));
+      console.error('Get videos error:', error);
+      return [];
     }
   },
 
   /**
-   * Fetch news, optionally filtered.
+   * Get news articles, optionally filtered by subscriptions
    */
-  getNews: async (subscriptions: Category[]): Promise<HealthNews[]> => {
+  getNews: async (subscriptions?: string[]): Promise<NewsItem[]> => {
     try {
-      let query = supabase.from('news').select('*');
+      let query = supabase
+        .from('news')
+        .select(`
+          *,
+          publishers (
+            name,
+            avatar
+          )
+        `)
+        .order('published_at', { ascending: false });
+
       if (subscriptions && subscriptions.length > 0) {
         query = query.in('category', subscriptions);
       }
-      const { data, error } = await query.order('date', { ascending: false });
+
+      const { data, error } = await query;
       if (error) throw error;
       return (data || []).map(mapNews);
     } catch (error) {
-      console.warn('Supabase getNews Error (Using Mock Data):', error);
-      if (subscriptions.length === 0) return MOCK_NEWS;
-      return MOCK_NEWS.filter(n => subscriptions.includes(n.category));
+      console.error('Get news error:', error);
+      return [];
     }
   },
 
   /**
-   * Fetch community events.
+   * Get community events
    */
-  getEvents: async (): Promise<CommunityEvent[]> => {
+  getEvents: async (): Promise<Event[]> => {
     try {
       const { data, error } = await supabase
         .from('events')
-        .select('*')
-        .order('id', { ascending: false });
+        .select(`
+          *,
+          publishers (
+            name,
+            avatar
+          )
+        `)
+        .order('published_at', { ascending: false });
 
       if (error) throw error;
       return (data || []).map(mapEvent);
     } catch (error) {
-      console.warn('Supabase getEvents Error (Using Mock Data):', error);
-      return MOCK_EVENTS;
+      console.error('Get events error:', error);
+      return [];
     }
   },
 
   /**
-   * Update user subscriptions.
+   * Update user subscriptions
    */
-  updateSubscriptions: async (userId: string, newSubs: Category[]): Promise<User> => {
+  updateSubscriptions: async (userId: string, subscriptions: string[]): Promise<User> => {
     try {
       const { data, error } = await supabase
         .from('users')
-        .update({ subscriptions: newSubs })
+        .update({ subscriptions })
         .eq('id', userId)
         .select()
         .single();
@@ -203,16 +261,52 @@ export const supabaseService = {
       if (error) throw error;
       return mapUser(data);
     } catch (error) {
-      console.warn('Supabase updateSubscriptions Error:', error);
-      // Return updated object for UI optimism
-      return {
-        id: userId,
-        name: '访客用户',
-        phone: '13800000000',
-        avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=fallback`,
-        loginCount: 1,
-        subscriptions: newSubs,
-      };
+      console.error('Update subscriptions error:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Update user stats
+   */
+  updateUserStats: async (userId: string, stats: { trainingMinutes: number; daysStreak: number; caloriesBurned: number }): Promise<User> => {
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .update({ stats })
+        .eq('id', userId)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return mapUser(data);
+    } catch (error) {
+      console.error('Update stats error:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Increment video views
+   */
+  incrementVideoViews: async (videoId: string): Promise<void> => {
+    try {
+      const { error } = await supabase.rpc('increment_video_views', { video_id: videoId });
+      if (error) throw error;
+    } catch (error) {
+      console.error('Increment views error:', error);
+    }
+  },
+
+  /**
+   * Increment event likes
+   */
+  incrementEventLikes: async (eventId: string): Promise<void> => {
+    try {
+      const { error } = await supabase.rpc('increment_event_likes', { event_id: eventId });
+      if (error) throw error;
+    } catch (error) {
+      console.error('Increment likes error:', error);
     }
   }
 };
