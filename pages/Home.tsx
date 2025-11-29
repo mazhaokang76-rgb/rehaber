@@ -1,13 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Play, Clock, ChevronRight } from 'lucide-react';
-import { videos, news, currentUser } from '../services/mockData';
+import { supabaseService } from '../services/supabase';
+import type { Video, NewsItem } from '../services/supabase';
 
 export const Home: React.FC = () => {
   const [activeCategory, setActiveCategory] = useState('全部');
+  const [videos, setVideos] = useState<Video[]>([]);
+  const [news, setNews] = useState<NewsItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [currentUser, setCurrentUser] = useState({ name: '用户', stats: { daysStreak: 0 } });
 
   const categories = ['全部', '复健', '核心', '有氧', '柔韧性'];
   
-  // Simple mapping for filtering based on English keys in mock data vs Chinese UI
   const categoryMap: Record<string, string> = {
     '全部': 'All',
     '复健': 'Rehab',
@@ -16,9 +20,44 @@ export const Home: React.FC = () => {
     '柔韧性': 'Flexibility'
   };
 
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      const [videosData, newsData] = await Promise.all([
+        supabaseService.getVideos(),
+        supabaseService.getNews()
+      ]);
+      setVideos(videosData);
+      setNews(newsData);
+      
+      // 获取当前用户信息
+      const userStr = localStorage.getItem('rehaber_user');
+      if (userStr) {
+        const user = JSON.parse(userStr);
+        setCurrentUser(user);
+      }
+    } catch (error) {
+      console.error('加载数据失败:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const filteredVideos = activeCategory === '全部' 
     ? videos 
     : videos.filter(v => v.category === categoryMap[activeCategory]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-600"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 pb-24">
@@ -75,49 +114,57 @@ export const Home: React.FC = () => {
         </div>
         
         <div className="space-y-4">
-          {filteredVideos.map(video => (
-            <div key={video.id} className="bg-white rounded-xl shadow-sm overflow-hidden flex active:scale-[0.99] transition-transform duration-100">
-              <div className="w-1/3 relative">
-                <img src={video.thumbnail} alt={video.title} className="w-full h-full object-cover" />
-                <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
-                  <div className="bg-white/30 backdrop-blur-sm p-1.5 rounded-full">
-                     <Play size={16} className="text-white fill-white" />
+          {filteredVideos.length === 0 ? (
+            <div className="text-center py-10 text-gray-400">暂无视频</div>
+          ) : (
+            filteredVideos.map(video => (
+              <div key={video.id} className="bg-white rounded-xl shadow-sm overflow-hidden flex active:scale-[0.99] transition-transform duration-100">
+                <div className="w-1/3 relative">
+                  <img src={video.thumbnail} alt={video.title} className="w-full h-full object-cover" />
+                  <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
+                    <div className="bg-white/30 backdrop-blur-sm p-1.5 rounded-full">
+                       <Play size={16} className="text-white fill-white" />
+                    </div>
+                  </div>
+                </div>
+                <div className="w-2/3 p-3 flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center space-x-2 mb-1">
+                      <span className="text-[10px] px-1.5 py-0.5 bg-brand-50 text-brand-600 rounded font-medium border border-brand-100">
+                        {video.category === 'Rehab' ? '复健' : video.category === 'Core' ? '核心' : video.category === 'Cardio' ? '有氧' : video.category}
+                      </span>
+                      <span className="text-[10px] text-gray-400 flex items-center">
+                        <Clock size={10} className="mr-1" /> {video.duration}
+                      </span>
+                    </div>
+                    <h3 className="text-sm font-bold text-gray-800 leading-snug line-clamp-2">{video.title}</h3>
+                  </div>
+                  <div className="flex items-center justify-between mt-2">
+                    <div className="flex items-center space-x-1.5">
+                      <img src={video.authorAvatar} alt={video.author} className="w-5 h-5 rounded-full" />
+                      <span className="text-xs text-gray-500 truncate max-w-[80px]">{video.author}</span>
+                    </div>
+                    <span className="text-[10px] text-gray-400">{video.views} 次观看</span>
                   </div>
                 </div>
               </div>
-              <div className="w-2/3 p-3 flex flex-col justify-between">
-                <div>
-                  <div className="flex items-center space-x-2 mb-1">
-                    <span className="text-[10px] px-1.5 py-0.5 bg-brand-50 text-brand-600 rounded font-medium border border-brand-100">
-                      {video.category === 'Rehab' ? '复健' : video.category === 'Core' ? '核心' : '其他'}
-                    </span>
-                    <span className="text-[10px] text-gray-400 flex items-center">
-                      <Clock size={10} className="mr-1" /> {video.duration}
-                    </span>
-                  </div>
-                  <h3 className="text-sm font-bold text-gray-800 leading-snug line-clamp-2">{video.title}</h3>
-                </div>
-                <div className="flex items-center justify-between mt-2">
-                  <div className="flex items-center space-x-1.5">
-                    <img src={video.authorAvatar} alt={video.author} className="w-5 h-5 rounded-full" />
-                    <span className="text-xs text-gray-500 truncate max-w-[80px]">{video.author}</span>
-                  </div>
-                  <span className="text-[10px] text-gray-400">{video.views} 次观看</span>
-                </div>
-              </div>
-            </div>
-          ))}
+            ))
+          )}
         </div>
       </div>
 
       {/* Health Tips Preview */}
       <div className="px-4">
         <h2 className="text-lg font-bold text-gray-800 mb-3">每日健康贴士</h2>
-        <div className="bg-gradient-to-r from-green-50 to-brand-50 p-4 rounded-xl border border-green-100">
-          <h3 className="font-bold text-gray-800 mb-1">{news[0].title}</h3>
-          <p className="text-sm text-gray-600 line-clamp-2 mb-3">{news[0].summary}</p>
-          <button className="text-xs font-bold text-brand-700 bg-white px-3 py-1.5 rounded shadow-sm">阅读全文</button>
-        </div>
+        {news.length > 0 ? (
+          <div className="bg-gradient-to-r from-green-50 to-brand-50 p-4 rounded-xl border border-green-100">
+            <h3 className="font-bold text-gray-800 mb-1">{news[0].title}</h3>
+            <p className="text-sm text-gray-600 line-clamp-2 mb-3">{news[0].summary}</p>
+            <button className="text-xs font-bold text-brand-700 bg-white px-3 py-1.5 rounded shadow-sm">阅读全文</button>
+          </div>
+        ) : (
+          <div className="text-center py-10 text-gray-400">暂无资讯</div>
+        )}
       </div>
     </div>
   );
