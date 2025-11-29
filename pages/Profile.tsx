@@ -1,9 +1,47 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Settings, ChevronRight, Award, BookOpen, Activity, LogOut, Bell } from 'lucide-react';
-import { currentUser, weeklyActivityData } from '../services/mockData';
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 
+// 周活动数据
+const weeklyActivityData = [
+  { name: '周一', mins: 30 },
+  { name: '周二', mins: 45 },
+  { name: '周三', mins: 20 },
+  { name: '周四', mins: 60 },
+  { name: '周五', mins: 0 },
+  { name: '周六', mins: 90 },
+  { name: '周日', mins: 30 },
+];
+
 export const Profile: React.FC = () => {
+  const [currentUser, setCurrentUser] = useState({
+    id: '',
+    name: '用户',
+    avatar: 'https://picsum.photos/seed/user_alex/200/200',
+    createdAt: new Date().toISOString(),
+    loginCount: 0,
+    stats: {
+      trainingMinutes: 0,
+      daysStreak: 0,
+      caloriesBurned: 0
+    }
+  });
+
+  useEffect(() => {
+    // 从 localStorage 获取用户信息
+    const userStr = localStorage.getItem('rehaber_user');
+    if (userStr) {
+      const user = JSON.parse(userStr);
+      setCurrentUser(user);
+    }
+  }, []);
+
+  const handleLogout = () => {
+    localStorage.removeItem('rehaber_user');
+    localStorage.removeItem('rehaber_token');
+    window.location.reload();
+  };
+
   return (
     <div className="pb-24 bg-gray-50 min-h-screen">
       {/* Header */}
@@ -91,7 +129,10 @@ export const Profile: React.FC = () => {
             ))}
         </div>
 
-         <button className="w-full bg-white text-red-500 font-bold py-4 rounded-2xl shadow-sm flex items-center justify-center space-x-2 hover:bg-red-50 transition-colors">
+         <button 
+           onClick={handleLogout}
+           className="w-full bg-white text-red-500 font-bold py-4 rounded-2xl shadow-sm flex items-center justify-center space-x-2 hover:bg-red-50 transition-colors"
+         >
             <LogOut size={18} />
             <span>退出登录</span>
         </button>
