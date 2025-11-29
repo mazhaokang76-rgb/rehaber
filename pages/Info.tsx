@@ -1,5 +1,6 @@
 import React from 'react';
-import { news } from '../services/mockData';
+import { supabaseService } from '../services/supabase';
+import type { Video, NewsItem } from '../services/supabase';
 import { Share2, Heart } from 'lucide-react';
 
 export const Info: React.FC = () => {
