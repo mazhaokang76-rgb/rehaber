@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { MapPin, Calendar, Users, Heart, MessageSquare, Search } from 'lucide-react';
-import { events } from '../services/mockData';
+import { supabaseService } from '../services/supabase';
+import type { Event } from '../services/supabase';
 
 export const Community: React.FC = () => {
   const [filter, setFilter] = useState<'动态' | '附近' | '我的活动'>('动态');
