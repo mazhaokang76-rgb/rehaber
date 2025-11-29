@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Home, BookOpen, Users, LayoutGrid, User } from 'lucide-react';
 import { NavTab } from './types';
 
@@ -9,9 +9,51 @@ import { Community as CommunityPage } from './pages/Community';
 import { Tools as ToolsPage } from './pages/Tools';
 import { Profile as ProfilePage } from './pages/Profile';
 import { Logo } from './components/Logo';
+import { AuthScreen } from './components/AuthScreen';
+import { supabaseService } from './services/supabase';
 
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<NavTab>(NavTab.HOME);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    // 检查用户是否已登录
+    const userStr = localStorage.getItem('rehaber_user');
+    if (userStr) {
+      setIsAuthenticated(true);
+    }
+    setLoading(false);
+  }, []);
+
+  const handleLogin = async (phone: string, name: string) => {
+    try {
+      setLoading(true);
+      const user = await supabaseService.login(phone, name);
+      localStorage.setItem('rehaber_user', JSON.stringify(user));
+      setIsAuthenticated(true);
+    } catch (error) {
+      console.error('登录失败:', error);
+      alert('登录失败，请重试');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <Logo className="h-16 w-16 mx-auto mb-4 animate-pulse" />
+          <div className="text-gray-500">加载中...</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <AuthScreen onLogin={handleLogin} loading={loading} />;
+  }
 
   const renderContent = () => {
     switch (activeTab) {
