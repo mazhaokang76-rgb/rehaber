@@ -16,43 +16,67 @@ const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<NavTab>(NavTab.HOME);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [authLoading, setAuthLoading] = useState(false);
 
   useEffect(() => {
     // 检查用户是否已登录
-    const userStr = localStorage.getItem('rehaber_user');
-    if (userStr) {
-      setIsAuthenticated(true);
-    }
-    setLoading(false);
+    const checkAuth = () => {
+      try {
+        const userStr = localStorage.getItem('rehaber_user');
+        if (userStr) {
+          const user = JSON.parse(userStr);
+          console.log('已登录用户:', user);
+          setIsAuthenticated(true);
+        } else {
+          console.log('未找到登录信息');
+          setIsAuthenticated(false);
+        }
+      } catch (error) {
+        console.error('检查登录状态失败:', error);
+        setIsAuthenticated(false);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    checkAuth();
   }, []);
 
   const handleLogin = async (phone: string, name: string) => {
+    console.log('尝试登录:', phone, name);
     try {
-      setLoading(true);
+      setAuthLoading(true);
+      
+      // 调用 Supabase 登录
       const user = await supabaseService.login(phone, name);
+      console.log('登录成功:', user);
+      
+      // 保存到 localStorage
       localStorage.setItem('rehaber_user', JSON.stringify(user));
+      
+      // 更新状态
       setIsAuthenticated(true);
     } catch (error) {
       console.error('登录失败:', error);
-      alert('登录失败，请重试');
+      alert('登录失败: ' + (error instanceof Error ? error.message : '未知错误'));
     } finally {
-      setLoading(false);
+      setAuthLoading(false);
     }
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-emerald-50 to-teal-50">
         <div className="text-center">
-          <Logo className="h-16 w-16 mx-auto mb-4 animate-pulse" />
-          <div className="text-gray-500">加载中...</div>
+          <Logo className="h-20 w-20 mx-auto mb-4 animate-pulse" />
+          <div className="text-gray-500 font-medium">加载中...</div>
         </div>
       </div>
     );
   }
 
   if (!isAuthenticated) {
-    return <AuthScreen onLogin={handleLogin} loading={loading} />;
+    return <AuthScreen onLogin={handleLogin} loading={authLoading} />;
   }
 
   const renderContent = () => {
