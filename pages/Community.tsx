@@ -2,11 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { MapPin, Calendar, Users, Heart, Search } from 'lucide-react';
 import { supabaseService } from '../services/supabase';
 import type { Event } from '../services/supabase';
+import { EventDetail } from '../components/EventDetail';
 
 export const Community: React.FC = () => {
   const [filter, setFilter] = useState<'动态' | '附近' | '我的活动'>('动态');
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
 
   useEffect(() => {
     loadEvents();
@@ -23,6 +25,16 @@ export const Community: React.FC = () => {
       setLoading(false);
     }
   };
+
+  // 如果选中了活动，显示详情页
+  if (selectedEventId) {
+    return (
+      <EventDetail
+        eventId={selectedEventId}
+        onBack={() => setSelectedEventId(null)}
+      />
+    );
+  }
 
   if (loading) {
     return (
@@ -80,13 +92,23 @@ export const Community: React.FC = () => {
           </div>
         ) : (
           events.map(event => (
-            <div key={event.id} className="bg-white rounded-2xl shadow-sm overflow-hidden">
+            <div
+              key={event.id}
+              onClick={() => setSelectedEventId(event.id)}
+              className="bg-white rounded-2xl shadow-sm overflow-hidden cursor-pointer hover:shadow-md transition-all active:scale-[0.99]"
+            >
                 <div className="relative h-48">
                     <img src={event.image} alt={event.title} className="w-full h-full object-cover" />
                     <div className="absolute top-3 left-3 bg-white/90 backdrop-blur text-xs font-bold px-2 py-1 rounded-md text-gray-800 shadow-sm">
                         {event.tags && event.tags.length > 0 ? event.tags[0] : '活动'}
                     </div>
-                    <button className="absolute top-3 right-3 bg-black/40 hover:bg-brand-500/80 text-white p-2 rounded-full backdrop-blur transition-colors">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        alert('已收藏');
+                      }}
+                      className="absolute top-3 right-3 bg-black/40 hover:bg-brand-500/80 text-white p-2 rounded-full backdrop-blur transition-colors"
+                    >
                         <Heart size={18} fill={event.joined ? "currentColor" : "none"} className={event.joined ? "text-red-500" : ""} />
                     </button>
                 </div>
@@ -109,6 +131,13 @@ export const Community: React.FC = () => {
                         </div>
                     </div>
 
+                    {/* 显示活动描述摘要（如果有） */}
+                    {event.description && (
+                      <p className="text-sm text-gray-600 line-clamp-2 mb-4 leading-relaxed">
+                        {event.description}
+                      </p>
+                    )}
+
                     <div className="flex items-center justify-between border-t border-gray-50 pt-4">
                          <div className="flex -space-x-2">
                             {[1,2,3].map(i => (
@@ -121,8 +150,14 @@ export const Community: React.FC = () => {
                             </div>
                          </div>
                          
-                         <button className="bg-brand-600 text-white px-5 py-2 rounded-full text-sm font-bold shadow-lg shadow-brand-200 hover:bg-brand-700 transition-colors">
-                             立即报名
+                         <button
+                           onClick={(e) => {
+                             e.stopPropagation();
+                             setSelectedEventId(event.id);
+                           }}
+                           className="bg-brand-600 text-white px-5 py-2 rounded-full text-sm font-bold shadow-lg shadow-brand-200 hover:bg-brand-700 transition-colors"
+                         >
+                             查看详情
                          </button>
                     </div>
                 </div>
@@ -130,6 +165,17 @@ export const Community: React.FC = () => {
           ))
         )}
       </div>
+
+      {/* Floating Action Button - 发布动态 */}
+      <button
+        className="fixed bottom-24 right-6 bg-brand-600 text-white p-4 rounded-full shadow-2xl hover:bg-brand-700 transition-all hover:scale-110 active:scale-95 z-30"
+        onClick={() => alert('发布动态功能开发中')}
+      >
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <line x1="12" y1="5" x2="12" y2="19"></line>
+          <line x1="5" y1="12" x2="19" y2="12"></line>
+        </svg>
+      </button>
     </div>
   );
 };
