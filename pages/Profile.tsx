@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Settings, ChevronRight, Award, BookOpen, Activity, LogOut, Bell } from 'lucide-react';
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import { ProfileEdit } from '../components/ProfileEdit';
 
 // 周活动数据
 const weeklyActivityData = [
@@ -26,6 +27,7 @@ export const Profile: React.FC = () => {
       caloriesBurned: 0
     }
   });
+  const [isEditing, setIsEditing] = useState(false);
 
   useEffect(() => {
     // 从 localStorage 获取用户信息
@@ -36,28 +38,62 @@ export const Profile: React.FC = () => {
     }
   }, []);
 
+  const handleSaveProfile = (name: string, avatar: string) => {
+    // 更新用户信息
+    const updatedUser = { ...currentUser, name, avatar };
+    setCurrentUser(updatedUser);
+    localStorage.setItem('rehaber_user', JSON.stringify(updatedUser));
+    setIsEditing(false);
+    alert('资料已更新！');
+  };
+
   const handleLogout = () => {
     localStorage.removeItem('rehaber_user');
     localStorage.removeItem('rehaber_token');
     window.location.reload();
   };
 
+  // 如果正在编辑，显示编辑页面
+  if (isEditing) {
+    return (
+      <ProfileEdit
+        currentName={currentUser.name}
+        currentAvatar={currentUser.avatar}
+        onSave={handleSaveProfile}
+        onBack={() => setIsEditing(false)}
+      />
+    );
+  }
+
   return (
     <div className="pb-24 bg-gray-50 min-h-screen">
       {/* Header */}
       <div className="bg-white pb-6 pt-10 px-6 rounded-b-3xl shadow-sm">
         <div className="flex items-center space-x-4">
-            <div className="relative">
-                <img src={currentUser.avatar} alt="Profile" className="w-20 h-20 rounded-full border-4 border-brand-100" />
+            <div
+              onClick={() => setIsEditing(true)}
+              className="relative cursor-pointer group"
+            >
+                <img
+                  src={currentUser.avatar}
+                  alt="Profile"
+                  className="w-20 h-20 rounded-full border-4 border-brand-100 group-hover:border-brand-300 transition-colors"
+                />
                 <div className="absolute bottom-0 right-0 bg-brand-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full border-2 border-white">
                     LV.5
+                </div>
+                <div className="absolute inset-0 rounded-full bg-black/0 group-hover:bg-black/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all">
+                  <div className="text-white text-xs font-bold">编辑</div>
                 </div>
             </div>
             <div className="flex-1">
                 <h1 className="text-xl font-bold text-gray-900">{currentUser.name}</h1>
                 <p className="text-sm text-gray-500">加入时间 {new Date(currentUser.createdAt).toLocaleDateString()}</p>
             </div>
-            <button className="text-gray-400 hover:text-gray-600">
+            <button
+              onClick={() => setIsEditing(true)}
+              className="text-gray-400 hover:text-gray-600"
+            >
                 <Settings size={24} />
             </button>
         </div>
