@@ -44,19 +44,21 @@ export const Profile: React.FC = () => {
     setCurrentUser(updatedUser);
     localStorage.setItem('rehaber_user', JSON.stringify(updatedUser));
     setIsEditing(false);
-    alert('资料已更新！');
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('rehaber_user');
-    localStorage.removeItem('rehaber_token');
-    window.location.reload();
+    if (confirm('确定要退出登录吗？')) {
+      localStorage.removeItem('rehaber_user');
+      localStorage.removeItem('rehaber_token');
+      window.location.reload();
+    }
   };
 
   // 如果正在编辑，显示编辑页面
   if (isEditing) {
     return (
       <ProfileEdit
+        userId={currentUser.id}
         currentName={currentUser.name}
         currentAvatar={currentUser.avatar}
         onSave={handleSaveProfile}
@@ -77,7 +79,7 @@ export const Profile: React.FC = () => {
                 <img
                   src={currentUser.avatar}
                   alt="Profile"
-                  className="w-20 h-20 rounded-full border-4 border-brand-100 group-hover:border-brand-300 transition-colors"
+                  className="w-20 h-20 rounded-full border-4 border-brand-100 group-hover:border-brand-300 transition-colors object-cover"
                 />
                 <div className="absolute bottom-0 right-0 bg-brand-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full border-2 border-white">
                     LV.5
