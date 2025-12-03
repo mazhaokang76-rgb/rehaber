@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
-import { ArrowLeft, Camera, Check } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { ArrowLeft, Camera, Check, Upload } from 'lucide-react';
+import { supabaseService } from '../services/supabase';
 
 interface ProfileEditProps {
+  userId: string;
   currentName: string;
   currentAvatar: string;
   onSave: (name: string, avatar: string) => void;
@@ -9,6 +11,7 @@ interface ProfileEditProps {
 }
 
 export const ProfileEdit: React.FC<ProfileEditProps> = ({
+  userId,
   currentName,
   currentAvatar,
   onSave,
@@ -17,6 +20,8 @@ export const ProfileEdit: React.FC<ProfileEditProps> = ({
   const [name, setName] = useState(currentName);
   const [avatar, setAvatar] = useState(currentAvatar);
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // 预设头像选项
   const avatarOptions = [
@@ -42,9 +47,18 @@ export const ProfileEdit: React.FC<ProfileEditProps> = ({
 
     try {
       setSaving(true);
-      // 模拟保存延迟
-      await new Promise(resolve => setTimeout(resolve, 500));
-      onSave(name, avatar);
+      
+      // 更新到 Supabase
+      const updatedUser = await supabaseService.updateUser(userId, {
+        name,
+        avatar
+      });
+
+      if (updatedUser) {
+        onSave(name, avatar);
+      } else {
+        throw new Error('更新失败');
+      }
     } catch (error) {
       console.error('保存失败:', error);
       alert('保存失败，请重试');
@@ -53,9 +67,44 @@ export const ProfileEdit: React.FC<ProfileEditProps> = ({
     }
   };
 
-  const handleAvatarUpload = () => {
-    // 实际应用中这里应该打开文件选择器并上传到服务器
-    alert('头像上传功能需要配置图片存储服务（如 Supabase Storage）');
+  const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // 检查文件类型
+    if (!file.type.startsWith('image/')) {
+      alert('请选择图片文件');
+      return;
+    }
+
+    // 检查文件大小（限制2MB）
+    if (file.size > 2 * 1024 * 1024) {
+      alert('图片大小不能超过2MB');
+      return;
+    }
+
+    try {
+      setUploading(true);
+      
+      // 上传到 Supabase Storage
+      const avatarUrl = await supabaseService.uploadAvatar(file, userId);
+      
+      if (avatarUrl) {
+        setAvatar(avatarUrl);
+        alert('头像上传成功！');
+      } else {
+        throw new Error('上传失败');
+      }
+    } catch (error) {
+      console.error('上传失败:', error);
+      alert('上传失败，请重试');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const triggerFileUpload = () => {
+    fileInputRef.current?.click();
   };
 
   return (
@@ -95,16 +144,48 @@ export const ProfileEdit: React.FC<ProfileEditProps> = ({
               <img
                 src={avatar}
                 alt="当前头像"
-                className="w-32 h-32 rounded-full border-4 border-brand-100 shadow-lg"
+                className="w-32 h-32 rounded-full border-4 border-brand-100 shadow-lg object-cover"
               />
-              <button
-                onClick={handleAvatarUpload}
-                className="absolute bottom-0 right-0 bg-brand-600 text-white p-3 rounded-full shadow-lg hover:bg-brand-700 transition-colors"
-              >
-                <Camera size={20} />
-              </button>
+              {uploading ? (
+                <div className="absolute bottom-0 right-0 bg-brand-600 text-white p-3 rounded-full shadow-lg">
+                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                </div>
+              ) : (
+                <button
+                  onClick={triggerFileUpload}
+                  className="absolute bottom-0 right-0 bg-brand-600 text-white p-3 rounded-full shadow-lg hover:bg-brand-700 transition-colors"
+                >
+                  <Camera size={20} />
+                </button>
+              )}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleAvatarUpload}
+                className="hidden"
+              />
             </div>
           </div>
+
+          {/* Upload Button */}
+          <button
+            onClick={triggerFileUpload}
+            disabled={uploading}
+            className="w-full bg-white border-2 border-brand-600 text-brand-600 font-bold py-3 rounded-xl hover:bg-brand-50 transition-colors disabled:opacity-50 flex items-center justify-center mb-4"
+          >
+            {uploading ? (
+              <>
+                <div className="w-5 h-5 border-2 border-brand-600 border-t-transparent rounded-full animate-spin mr-2"></div>
+                上传中...
+              </>
+            ) : (
+              <>
+                <Upload size={20} className="mr-2" />
+                上传自定义头像
+              </>
+            )}
+          </button>
 
           {/* Avatar Options */}
           <div className="bg-white rounded-2xl p-4 shadow-sm">
@@ -159,7 +240,8 @@ export const ProfileEdit: React.FC<ProfileEditProps> = ({
               <div className="font-bold text-gray-900 mb-1">提示</div>
               <ul className="text-sm text-gray-700 space-y-1">
                 <li>• 昵称将在社区和评论中显示</li>
-                <li>• 建议使用真实或易识别的昵称</li>
+                <li>• 支持 JPG、PNG、GIF 格式</li>
+                <li>• 图片大小不超过 2MB</li>
                 <li>• 头像可以随时更换</li>
               </ul>
             </div>
