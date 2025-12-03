@@ -3,6 +3,7 @@ import { Play, Clock, ChevronRight } from 'lucide-react';
 import { supabaseService } from '../services/supabase';
 import type { Video, NewsItem } from '../services/supabase';
 import { VideoDetail } from '../components/VideoDetail';
+import { NewsDetail } from '../components/NewsDetail';
 
 export const Home: React.FC = () => {
   const [activeCategory, setActiveCategory] = useState('全部');
@@ -11,6 +12,7 @@ export const Home: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState({ name: '用户', stats: { daysStreak: 0 } });
   const [selectedVideoId, setSelectedVideoId] = useState<string | null>(null);
+  const [selectedNewsId, setSelectedNewsId] = useState<string | null>(null);
 
   const categories = ['全部', '复健', '核心', '有氧', '柔韧性'];
   
@@ -63,6 +65,16 @@ export const Home: React.FC = () => {
     );
   }
 
+  // 如果选中了文章，显示文章详情页
+  if (selectedNewsId) {
+    return (
+      <NewsDetail
+        newsId={selectedNewsId}
+        onBack={() => setSelectedNewsId(null)}
+      />
+    );
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen">
@@ -70,6 +82,9 @@ export const Home: React.FC = () => {
       </div>
     );
   }
+
+  // 获取最新的文章（第一篇）
+  const latestNews = news.length > 0 ? news[0] : null;
 
   return (
     <div className="space-y-6 pb-24">
@@ -129,7 +144,7 @@ export const Home: React.FC = () => {
           {filteredVideos.length === 0 ? (
             <div className="text-center py-10 text-gray-400">暂无视频</div>
           ) : (
-            filteredVideos.map(video => (
+            filteredVideos.slice(0, 5).map(video => (
               <div
                 key={video.id}
                 onClick={() => setSelectedVideoId(video.id)}
@@ -169,19 +184,88 @@ export const Home: React.FC = () => {
         </div>
       </div>
 
-      {/* Health Tips Preview */}
+      {/* Health Tips Preview - 显示最新文章 */}
       <div className="px-4">
         <h2 className="text-lg font-bold text-gray-800 mb-3">每日健康贴士</h2>
-        {news.length > 0 ? (
-          <div className="bg-gradient-to-r from-green-50 to-brand-50 p-4 rounded-xl border border-green-100">
-            <h3 className="font-bold text-gray-800 mb-1">{news[0].title}</h3>
-            <p className="text-sm text-gray-600 line-clamp-2 mb-3">{news[0].summary}</p>
-            <button className="text-xs font-bold text-brand-700 bg-white px-3 py-1.5 rounded shadow-sm">阅读全文</button>
+        {latestNews ? (
+          <div
+            onClick={() => setSelectedNewsId(latestNews.id)}
+            className="bg-gradient-to-r from-green-50 to-brand-50 p-4 rounded-xl border border-green-100 cursor-pointer active:scale-[0.99] transition-transform"
+          >
+            <div className="flex items-start space-x-3 mb-3">
+              <div className="flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden bg-gray-200">
+                <img 
+                  src={latestNews.coverImage} 
+                  alt={latestNews.title}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+              <div className="flex-1">
+                <div className="flex items-center space-x-2 mb-1">
+                  <span className="text-[10px] px-2 py-0.5 bg-brand-600 text-white rounded-full font-medium">
+                    {latestNews.category}
+                  </span>
+                  <span className="text-[10px] text-gray-500">{latestNews.date}</span>
+                </div>
+                <h3 className="font-bold text-gray-800 text-sm line-clamp-2 leading-snug">
+                  {latestNews.title}
+                </h3>
+              </div>
+            </div>
+            <p className="text-sm text-gray-600 line-clamp-2 mb-3 leading-relaxed">
+              {latestNews.summary}
+            </p>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center text-xs text-gray-500">
+                <Clock size={12} className="mr-1" />
+                {latestNews.readTime}
+              </div>
+              <button className="text-xs font-bold text-brand-700 bg-white px-3 py-1.5 rounded-full shadow-sm hover:shadow-md transition-shadow">
+                查看详情 →
+              </button>
+            </div>
           </div>
         ) : (
           <div className="text-center py-10 text-gray-400">暂无资讯</div>
         )}
       </div>
+
+      {/* More News Teaser */}
+      {news.length > 1 && (
+        <div className="px-4">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-lg font-bold text-gray-800">更多健康资讯</h2>
+            <span className="text-xs text-brand-600 font-semibold flex items-center cursor-pointer">
+              查看全部 <ChevronRight size={14} />
+            </span>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            {news.slice(1, 3).map((item) => (
+              <div
+                key={item.id}
+                onClick={() => setSelectedNewsId(item.id)}
+                className="bg-white rounded-xl overflow-hidden shadow-sm cursor-pointer active:scale-95 transition-transform"
+              >
+                <div className="relative h-24">
+                  <img 
+                    src={item.coverImage} 
+                    alt={item.title}
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute top-2 right-2 bg-black/50 text-white text-[8px] px-2 py-0.5 rounded-full backdrop-blur-sm">
+                    {item.category}
+                  </div>
+                </div>
+                <div className="p-2">
+                  <h4 className="font-bold text-xs text-gray-800 line-clamp-2 leading-snug">
+                    {item.title}
+                  </h4>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
