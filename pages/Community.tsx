@@ -1,10 +1,36 @@
-import React, { useState } from 'react';
-import { MapPin, Calendar, Users, Heart, MessageSquare, Search } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { MapPin, Calendar, Users, Heart, Search } from 'lucide-react';
 import { supabaseService } from '../services/supabase';
 import type { Event } from '../services/supabase';
 
 export const Community: React.FC = () => {
   const [filter, setFilter] = useState<'动态' | '附近' | '我的活动'>('动态');
+  const [events, setEvents] = useState<Event[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadEvents();
+  }, []);
+
+  const loadEvents = async () => {
+    try {
+      setLoading(true);
+      const data = await supabaseService.getEvents();
+      setEvents(data);
+    } catch (error) {
+      console.error('加载活动失败:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-600"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="pb-24 bg-gray-50 min-h-screen">
@@ -46,12 +72,19 @@ export const Community: React.FC = () => {
             </div>
         </div>
 
-        {events.map(event => (
+        {events.length === 0 ? (
+          <div className="text-center py-20">
+            <div className="text-6xl mb-4">🏃‍♂️</div>
+            <div className="text-gray-400 font-medium">暂无社区活动</div>
+            <div className="text-gray-300 text-sm mt-2">请稍后再来查看</div>
+          </div>
+        ) : (
+          events.map(event => (
             <div key={event.id} className="bg-white rounded-2xl shadow-sm overflow-hidden">
                 <div className="relative h-48">
                     <img src={event.image} alt={event.title} className="w-full h-full object-cover" />
                     <div className="absolute top-3 left-3 bg-white/90 backdrop-blur text-xs font-bold px-2 py-1 rounded-md text-gray-800 shadow-sm">
-                        {event.tags[0]}
+                        {event.tags && event.tags.length > 0 ? event.tags[0] : '活动'}
                     </div>
                     <button className="absolute top-3 right-3 bg-black/40 hover:bg-brand-500/80 text-white p-2 rounded-full backdrop-blur transition-colors">
                         <Heart size={18} fill={event.joined ? "currentColor" : "none"} className={event.joined ? "text-red-500" : ""} />
@@ -94,7 +127,8 @@ export const Community: React.FC = () => {
                     </div>
                 </div>
             </div>
-        ))}
+          ))
+        )}
       </div>
     </div>
   );
