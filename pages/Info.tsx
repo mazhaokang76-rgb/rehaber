@@ -2,10 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { Share2, Heart } from 'lucide-react';
 import { supabaseService } from '../services/supabase';
 import type { NewsItem } from '../services/supabase';
+import { NewsDetail } from '../components/NewsDetail';
 
 export const Info: React.FC = () => {
   const [news, setNews] = useState<NewsItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedNewsId, setSelectedNewsId] = useState<string | null>(null);
 
   useEffect(() => {
     loadNews();
@@ -22,6 +24,16 @@ export const Info: React.FC = () => {
       setLoading(false);
     }
   };
+
+  // 如果选中了文章，显示详情页
+  if (selectedNewsId) {
+    return (
+      <NewsDetail
+        newsId={selectedNewsId}
+        onBack={() => setSelectedNewsId(null)}
+      />
+    );
+  }
 
   if (loading) {
     return (
@@ -46,7 +58,11 @@ export const Info: React.FC = () => {
         ) : (
           <>
             {news.map((item) => (
-              <div key={item.id} className="break-inside-avoid bg-white rounded-xl shadow-sm overflow-hidden mb-4 group">
+              <div
+                key={item.id}
+                onClick={() => setSelectedNewsId(item.id)}
+                className="break-inside-avoid bg-white rounded-xl shadow-sm overflow-hidden mb-4 group cursor-pointer active:scale-95 transition-transform"
+              >
                 <div className="relative">
                   <img src={item.coverImage} alt={item.title} className="w-full object-cover" />
                   <div className="absolute top-2 right-2 bg-black/30 backdrop-blur-md text-white text-[10px] px-2 py-0.5 rounded-full">
@@ -63,10 +79,22 @@ export const Info: React.FC = () => {
                   <div className="flex justify-between items-center border-t border-gray-50 pt-2">
                     <span className="text-[10px] text-gray-400">{item.date}</span>
                     <div className="flex space-x-3">
-                       <button className="text-gray-400 hover:text-red-500 transition-colors">
+                       <button
+                         onClick={(e) => {
+                           e.stopPropagation();
+                           alert('已收藏');
+                         }}
+                         className="text-gray-400 hover:text-red-500 transition-colors"
+                       >
                          <Heart size={14} />
                        </button>
-                       <button className="text-gray-400 hover:text-brand-600 transition-colors">
+                       <button
+                         onClick={(e) => {
+                           e.stopPropagation();
+                           alert('分享功能');
+                         }}
+                         className="text-gray-400 hover:text-brand-600 transition-colors"
+                       >
                          <Share2 size={14} />
                        </button>
                     </div>
