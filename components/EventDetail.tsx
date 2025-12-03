@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Share2, Heart, MapPin, Calendar, Users, Clock } from 'lucide-react';
+import { ArrowLeft, Share2, Heart, MapPin, Calendar, Users } from 'lucide-react';
+import { supabaseService } from '../services/supabase';
 import type { Event } from '../services/supabase';
 
 interface EventDetailProps {
@@ -20,20 +21,11 @@ export const EventDetail: React.FC<EventDetailProps> = ({ eventId, onBack }) => 
   const loadEventDetail = async () => {
     try {
       setLoading(true);
-      // 模拟数据
-      const mockEvent: Event = {
-        id: eventId,
-        title: '周日晨间瑜伽',
-        location: '朝阳公园·绿地区',
-        time: '周日, 8:00 AM - 9:30 AM',
-        image: 'https://picsum.photos/seed/yoga/800/500',
-        likes: 45,
-        joined: false,
-        organizer: '艾德琳瑜伽',
-        tags: ['瑜伽', '户外', '初级']
-      };
-      setEvent(mockEvent);
-      setLiked(mockEvent.joined);
+      const data = await supabaseService.getEventById(eventId);
+      setEvent(data);
+      if (data) {
+        setLiked(data.joined);
+      }
     } catch (error) {
       console.error('加载活动失败:', error);
     } finally {
@@ -172,47 +164,18 @@ export const EventDetail: React.FC<EventDetailProps> = ({ eventId, onBack }) => 
                   <div className="font-bold text-gray-900">{event.organizer}</div>
                 </div>
               </div>
-              <button className="text-brand-600 text-sm font-bold">
-                查看主页
-              </button>
             </div>
           </div>
 
           {/* Description */}
-          <div className="mb-6">
-            <h3 className="text-lg font-bold text-gray-900 mb-3">活动介绍</h3>
-            <div className="text-gray-700 leading-relaxed space-y-3">
-              <p>
-                在这个美好的周日清晨，让我们一起在朝阳公园的绿地上练习瑜伽，迎接新一天的阳光。本次活动适合所有水平的瑜伽爱好者，我们将进行舒缓的晨间流瑜伽练习。
-              </p>
-              <p>
-                <strong>活动亮点：</strong>
-              </p>
-              <ul className="list-disc list-inside space-y-1 text-sm">
-                <li>专业瑜伽教练指导</li>
-                <li>户外新鲜空气，亲近自然</li>
-                <li>适合初学者，无需基础</li>
-                <li>提供瑜伽垫租借服务</li>
-                <li>活动后提供健康早餐</li>
-              </ul>
-            </div>
-          </div>
-
-          {/* What to Bring */}
-          <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 mb-6">
-            <div className="flex items-start">
-              <div className="text-2xl mr-3">🎒</div>
-              <div>
-                <div className="font-bold text-gray-900 mb-2">需要携带</div>
-                <ul className="text-sm text-gray-700 space-y-1">
-                  <li>• 舒适的运动服装</li>
-                  <li>• 水杯和毛巾</li>
-                  <li>• 防晒用品（夏季）</li>
-                  <li>• 瑜伽垫（可选，现场提供租借）</li>
-                </ul>
+          {event.description && (
+            <div className="mb-6">
+              <h3 className="text-lg font-bold text-gray-900 mb-3">活动介绍</h3>
+              <div className="text-gray-700 leading-relaxed whitespace-pre-wrap">
+                {event.description}
               </div>
             </div>
-          </div>
+          )}
 
           {/* Participants */}
           <div className="mb-6">
