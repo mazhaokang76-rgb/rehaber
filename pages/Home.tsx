@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Play, Clock, ChevronRight } from 'lucide-react';
 import { supabaseService } from '../services/supabase';
 import type { Video, NewsItem } from '../services/supabase';
+import { VideoDetail } from '../components/VideoDetail';
 
 export const Home: React.FC = () => {
   const [activeCategory, setActiveCategory] = useState('全部');
@@ -9,6 +10,7 @@ export const Home: React.FC = () => {
   const [news, setNews] = useState<NewsItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState({ name: '用户', stats: { daysStreak: 0 } });
+  const [selectedVideoId, setSelectedVideoId] = useState<string | null>(null);
 
   const categories = ['全部', '复健', '核心', '有氧', '柔韧性'];
   
@@ -50,6 +52,16 @@ export const Home: React.FC = () => {
   const filteredVideos = activeCategory === '全部' 
     ? videos 
     : videos.filter(v => v.category === categoryMap[activeCategory]);
+
+  // 如果选中了视频，显示视频详情页
+  if (selectedVideoId) {
+    return (
+      <VideoDetail
+        videoId={selectedVideoId}
+        onBack={() => setSelectedVideoId(null)}
+      />
+    );
+  }
 
   if (loading) {
     return (
@@ -118,7 +130,11 @@ export const Home: React.FC = () => {
             <div className="text-center py-10 text-gray-400">暂无视频</div>
           ) : (
             filteredVideos.map(video => (
-              <div key={video.id} className="bg-white rounded-xl shadow-sm overflow-hidden flex active:scale-[0.99] transition-transform duration-100">
+              <div
+                key={video.id}
+                onClick={() => setSelectedVideoId(video.id)}
+                className="bg-white rounded-xl shadow-sm overflow-hidden flex active:scale-[0.99] transition-transform duration-100 cursor-pointer"
+              >
                 <div className="w-1/3 relative">
                   <img src={video.thumbnail} alt={video.title} className="w-full h-full object-cover" />
                   <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
