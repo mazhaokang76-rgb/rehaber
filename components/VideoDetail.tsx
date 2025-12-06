@@ -1,7 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Share2, Heart, Play, Eye, Clock } from 'lucide-react';
+// components/VideoDetail.tsx - 增强版视频详情页
+import React, { useState, useEffect, useRef } from 'react';
+import { ArrowLeft, Share2, Heart, Play, Eye, Clock, Bookmark } from 'lucide-react';
 import type { Video } from '../services/supabase';
 import { supabaseService } from '../services/supabase';
+import { Comments } from './Comments'; // 新增：导入评论组件
 
 interface VideoDetailProps {
   videoId: string;
@@ -11,24 +13,83 @@ interface VideoDetailProps {
 export const VideoDetail: React.FC<VideoDetailProps> = ({ videoId, onBack }) => {
   const [video, setVideo] = useState<Video | null>(null);
   const [liked, setLiked] = useState(false);
+  const [favorited, setFavorited] = useState(false); // 新增：收藏状态
   const [loading, setLoading] = useState(true);
   const [isPlaying, setIsPlaying] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null); // 新增：视频元素引用
   const FALLBACK_VIDEO = 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
 
   useEffect(() => {
     loadVideoDetail();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [videoId]);
+
+  // 新增：监听视频播放进度，自动保存
+  useEffect(() => {
+    if (!videoRef.current || !video) return;
+
+    const videoElement = videoRef.current;
+    let progressInterval: NodeJS.Timeout;
+
+    const handlePlay = () => {
+      // 每5秒保存一次进度
+      progressInterval = setInterval(() => {
+        if (videoElement.currentTime > 0) {
+          supabaseService.saveVideoProgress(
+            videoId,
+            Math.floor(videoElement.currentTime),
+            Math.floor(videoElement.duration)
+          );
+        }
+      }, 5000);
+    };
+
+    const handlePause = () => {
+      if (progressInterval) {
+        clearInterval(progressInterval);
+      }
+      // 暂停时也保存一次进度
+      if (videoElement.currentTime > 0) {
+        supabaseService.saveVideoProgress(
+          videoId,
+          Math.floor(videoElement.currentTime),
+          Math.floor(videoElement.duration)
+        );
+      }
+    };
+
+    videoElement.addEventListener('play', handlePlay);
+    videoElement.addEventListener('pause', handlePause);
+    videoElement.addEventListener('ended', handlePause);
+
+    return () => {
+      if (progressInterval) {
+        clearInterval(progressInterval);
+      }
+      videoElement.removeEventListener('play', handlePlay);
+      videoElement.removeEventListener('pause', handlePause);
+      videoElement.removeEventListener('ended', handlePause);
+    };
+  }, [videoId, video]);
 
   const loadVideoDetail = async () => {
     try {
       setLoading(true);
-      // 尝试从 Supabase 拉取真实数据
       const v = await supabaseService.getVideoById(videoId);
       if (v) {
         setVideo(v);
+        setLiked(v.isLiked || false); // 新增：设置点赞状态
+        setFavorited(v.isFavorited || false); // 新增：设置收藏状态
+        
+        // 新增：加载并恢复视频进度
+        const progress = await supabaseService.getVideoProgress(videoId);
+        if (progress && progress.progressSeconds > 0 && !progress.completed) {
+          setTimeout(() => {
+            if (videoRef.current) {
+              videoRef.current.currentTime = progress.progressSeconds;
+            }
+          }, 500);
+        }
       } else {
-        // 若没有取到，可以保留 null，让 UI 显示“视频不存在”或兜底
         setVideo(null);
       }
     } catch (error) {
@@ -55,6 +116,41 @@ export const VideoDetail: React.FC<VideoDetailProps> = ({ videoId, onBack }) => 
       }
     } catch (error) {
       console.error('分享失败:', error);
+    }
+  };
+
+  // 新增：处理点赞
+  const handleLike = async () => {
+    try {
+      const isLiked = await supabaseService.toggleLike(videoId, 'video');
+      setLiked(isLiked);
+      if (video) {
+        setVideo({
+          ...video,
+          isLiked,
+          likesCount: (video.likesCount || 0) + (isLiked ? 1 : -1)
+        });
+      }
+    } catch (error) {
+      console.error('点赞失败:', error);
+      alert('操作失败，请重试');
+    }
+  };
+
+  // 新增：处理收藏
+  const handleFavorite = async () => {
+    try {
+      const isFavorited = await supabaseService.toggleFavorite(videoId, 'video');
+      setFavorited(isFavorited);
+      if (video) {
+        setVideo({
+          ...video,
+          isFavorited
+        });
+      }
+    } catch (error) {
+      console.error('收藏失败:', error);
+      alert('操作失败，请重试');
     }
   };
 
@@ -89,8 +185,19 @@ export const VideoDetail: React.FC<VideoDetailProps> = ({ videoId, onBack }) => 
             <ArrowLeft size={24} className="text-gray-700" />
           </button>
           <div className="flex items-center space-x-2">
+            {/* 新增：收藏按钮 */}
             <button
-              onClick={() => setLiked(!liked)}
+              onClick={handleFavorite}
+              className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+            >
+              <Bookmark
+                size={24}
+                className={favorited ? 'text-yellow-500 fill-yellow-500' : 'text-gray-700'}
+              />
+            </button>
+            {/* 修改：点赞按钮调用新的处理函数 */}
+            <button
+              onClick={handleLike}
               className="p-2 hover:bg-gray-100 rounded-full transition-colors"
             >
               <Heart
@@ -128,26 +235,31 @@ export const VideoDetail: React.FC<VideoDetailProps> = ({ videoId, onBack }) => 
             <div className="absolute bottom-4 right-4 bg-black/60 text-white text-sm px-2 py-1 rounded backdrop-blur-sm">
               {video.duration}
             </div>
+            {/* 新增：显示观看进度 */}
+            {video.progress && video.progress > 0 && (
+              <div className="absolute bottom-0 left-0 right-0 h-1 bg-gray-700">
+                <div
+                  className="h-full bg-brand-600"
+                  style={{ width: `${video.progress}%` }}
+                ></div>
+              </div>
+            )}
           </>
         ) : (
           <div className="w-full h-full flex items-center justify-center">
-            {/* HTML5 Video Player */}
+            {/* 新增：添加 ref 以便控制播放进度 */}
             <video
+              ref={videoRef}
               className="w-full h-full"
               controls
               autoPlay
               poster={video.thumbnail}
               onError={(e) => {
-                console.error('视频播放出错，可能 URL 无效或网络问题', e);
-                // 如果播放出错且使用的是空的 video.videoUrl，可尝试用回退视频
-                // 这里简单提示用户
-                alert('无法播放该视频，已为你切换示例视频（如果有）');
+                console.error('视频播放出错', e);
+                alert('无法播放该视频');
               }}
             >
-              <source
-                src={videoSrc}
-                type="video/mp4"
-              />
+              <source src={videoSrc} type="video/mp4" />
               您的浏览器不支持视频播放
             </video>
           </div>
@@ -170,7 +282,7 @@ export const VideoDetail: React.FC<VideoDetailProps> = ({ videoId, onBack }) => 
             </h1>
           </div>
 
-          {/* Stats */}
+          {/* Stats - 修改：显示真实的点赞数 */}
           <div className="flex items-center space-x-6 mb-6 pb-6 border-b border-gray-100">
             <div className="flex items-center text-gray-600">
               <Eye size={18} className="mr-2" />
@@ -178,7 +290,11 @@ export const VideoDetail: React.FC<VideoDetailProps> = ({ videoId, onBack }) => 
             </div>
             <div className="flex items-center text-gray-600">
               <Heart size={18} className="mr-2" />
-              <span className="text-sm">{Math.floor(video.views * 0.1)} 点赞</span>
+              <span className="text-sm">{video.likesCount || 0} 点赞</span>
+            </div>
+            {/* 新增：显示评论数 */}
+            <div className="flex items-center text-gray-600">
+              <span className="text-sm">{video.commentsCount || 0} 评论</span>
             </div>
           </div>
 
@@ -207,10 +323,15 @@ export const VideoDetail: React.FC<VideoDetailProps> = ({ videoId, onBack }) => 
               <p>{video.description || '暂无视频介绍。'}</p>
             </div>
           </div>
-
-          {/* 下方内容保持原样（训练计划、提示、评论等） */}
-          {/* ... 保留原有实现 ... */}
         </div>
+      </div>
+
+      {/* 新增：评论区 - 添加在内容底部 */}
+      <div className="mt-4">
+        <Comments 
+          contentId={videoId} 
+          contentType="video" 
+        />
       </div>
 
       {/* Related Videos */}
