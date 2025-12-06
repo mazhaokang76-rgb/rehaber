@@ -1,13 +1,15 @@
-// services/supabase.ts - 完整版，支持头像上传和详情获取
+// services/supabase.ts - 增强版，包含所有新功能
 import { createClient } from '@supabase/supabase-js';
 
-// Supabase 配置
 const SUPABASE_URL = 'https://bohwsyaozlnscmgylzub.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJvaHdzeWFvemxuc2NtZ3lsenViIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQzMTQ3NDgsImV4cCI6MjA3OTg5MDc0OH0.F9OfedYqlt3cxmbpuokawfbNolHkkFTxgOiDBkgJCgM';
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-// Type definitions
+// ============================================
+// Type Definitions
+// ============================================
+
 export interface User {
   id: string;
   name: string;
@@ -35,6 +37,11 @@ export interface Video {
   authorAvatar: string;
   publishedAt?: string;
   description?: string;
+  isFavorited?: boolean;
+  isLiked?: boolean;
+  likesCount?: number;
+  commentsCount?: number;
+  progress?: number;
 }
 
 export interface NewsItem {
@@ -49,6 +56,10 @@ export interface NewsItem {
   type: 'article' | 'video';
   author?: string;
   authorAvatar?: string;
+  isFavorited?: boolean;
+  isLiked?: boolean;
+  likesCount?: number;
+  commentsCount?: number;
 }
 
 export interface Event {
@@ -62,9 +73,65 @@ export interface Event {
   joined: boolean;
   organizer: string;
   tags: string[];
+  isFavorited?: boolean;
+  isLiked?: boolean;
+  commentsCount?: number;
 }
 
-// 数据映射函数
+export interface Comment {
+  id: string;
+  userId: string;
+  userName: string;
+  userAvatar: string;
+  content: string;
+  createdAt: string;
+  likesCount: number;
+  isLiked?: boolean;
+  replies?: Comment[];
+}
+
+export interface VideoProgress {
+  videoId: string;
+  progressSeconds: number;
+  durationSeconds: number;
+  completed: boolean;
+  lastWatched: string;
+}
+
+export interface Notification {
+  id: string;
+  title: string;
+  message: string;
+  type: 'event' | 'comment' | 'like' | 'system';
+  relatedId?: string;
+  read: boolean;
+  createdAt: string;
+}
+
+export interface SearchFilters {
+  categories?: string[];
+  dateFrom?: string;
+  dateTo?: string;
+  sortBy?: 'recent' | 'popular' | 'relevant';
+}
+
+// ============================================
+// Helper Functions
+// ============================================
+
+const getCurrentUserId = (): string | null => {
+  try {
+    const userStr = localStorage.getItem('rehaber_user');
+    if (userStr) {
+      const user = JSON.parse(userStr);
+      return user.id;
+    }
+  } catch (error) {
+    console.error('获取用户ID失败:', error);
+  }
+  return null;
+};
+
 const mapUser = (data: any): User => ({
   id: data.id,
   name: data.name,
@@ -87,7 +154,12 @@ const mapVideo = (data: any): Video => ({
   author: data.publishers?.name || '未知作者',
   authorAvatar: data.publishers?.avatar || 'https://picsum.photos/seed/default/100/100',
   publishedAt: data.published_at,
-  description: data.description
+  description: data.description,
+  isFavorited: data.is_favorited || false,
+  isLiked: data.is_liked || false,
+  likesCount: data.likes_count || 0,
+  commentsCount: data.comments_count || 0,
+  progress: data.progress || 0
 });
 
 const mapNews = (data: any): NewsItem => ({
@@ -101,7 +173,11 @@ const mapNews = (data: any): NewsItem => ({
   readTime: data.read_time || '5分钟',
   type: data.type || 'article',
   author: data.publishers?.name,
-  authorAvatar: data.publishers?.avatar
+  authorAvatar: data.publishers?.avatar,
+  isFavorited: data.is_favorited || false,
+  isLiked: data.is_liked || false,
+  likesCount: data.likes_count || 0,
+  commentsCount: data.comments_count || 0
 });
 
 const mapEvent = (data: any): Event => ({
@@ -114,14 +190,31 @@ const mapEvent = (data: any): Event => ({
   likes: data.likes || 0,
   joined: false,
   organizer: data.publishers?.name || '未知组织者',
-  tags: data.tags || []
+  tags: data.tags || [],
+  isFavorited: data.is_favorited || false,
+  isLiked: data.is_liked || false,
+  commentsCount: data.comments_count || 0
 });
 
+const mapComment = (data: any): Comment => ({
+  id: data.id,
+  userId: data.user_id,
+  userName: data.users?.name || '匿名用户',
+  userAvatar: data.users?.avatar || 'https://api.dicebear.com/7.x/avataaars/svg?seed=anonymous',
+  content: data.content,
+  createdAt: data.created_at,
+  likesCount: data.likes_count || 0,
+  isLiked: data.is_liked || false,
+  replies: data.replies?.map(mapComment) || []
+});
+
+// ============================================
 // Supabase Service
+// ============================================
+
 export const supabaseService = {
-  /**
-   * 登录或注册用户
-   */
+  // ==================== 用户相关 ====================
+  
   login: async (phone: string, name?: string): Promise<User> => {
     console.log('🔐 开始登录...', { phone, name });
     try {
@@ -173,218 +266,6 @@ export const supabaseService = {
     }
   },
 
-  /**
-   * 获取视频列表
-   */
-  getVideos: async (subscriptions?: string[]): Promise<Video[]> => {
-    console.log('📹 获取视频列表...');
-    try {
-      let query = supabase
-        .from('videos')
-        .select(`
-          *,
-          publishers (
-            name,
-            avatar
-          )
-        `)
-        .order('published_at', { ascending: false });
-
-      if (subscriptions && subscriptions.length > 0) {
-        query = query.in('category', subscriptions);
-      }
-
-      const { data, error } = await query;
-      if (error) throw error;
-      
-      console.log(`✅ 获取到 ${data?.length || 0} 个视频`);
-      return (data || []).map(mapVideo);
-    } catch (error) {
-      console.error('❌ 获取视频失败:', error);
-      return [];
-    }
-  },
-
-  /**
-   * 获取单个视频详情
-   */
-  getVideoById: async (id: string): Promise<Video | null> => {
-    console.log('📹 获取视频详情:', id);
-    try {
-      const { data, error } = await supabase
-        .from('videos')
-        .select(`
-          *,
-          publishers (
-            name,
-            avatar,
-            bio
-          )
-        `)
-        .eq('id', id)
-        .single();
-
-      if (error) throw error;
-      console.log('✅ 获取视频详情成功');
-      return mapVideo(data);
-    } catch (error) {
-      console.error('❌ 获取视频详情失败:', error);
-      return null;
-    }
-  },
-
-  /**
-   * 获取新闻列表
-   */
-  getNews: async (subscriptions?: string[]): Promise<NewsItem[]> => {
-    console.log('📰 获取新闻列表...');
-    try {
-      let query = supabase
-        .from('news')
-        .select(`
-          *,
-          publishers (
-            name,
-            avatar
-          )
-        `)
-        .order('published_at', { ascending: false });
-
-      if (subscriptions && subscriptions.length > 0) {
-        query = query.in('category', subscriptions);
-      }
-
-      const { data, error } = await query;
-      if (error) throw error;
-      
-      console.log(`✅ 获取到 ${data?.length || 0} 篇文章`);
-      return (data || []).map(mapNews);
-    } catch (error) {
-      console.error('❌ 获取新闻失败:', error);
-      return [];
-    }
-  },
-
-  /**
-   * 获取单篇文章详情
-   */
-  getNewsById: async (id: string): Promise<NewsItem | null> => {
-    console.log('📰 获取文章详情:', id);
-    try {
-      const { data, error } = await supabase
-        .from('news')
-        .select(`
-          *,
-          publishers (
-            name,
-            avatar,
-            bio
-          )
-        `)
-        .eq('id', id)
-        .single();
-
-      if (error) throw error;
-      console.log('✅ 获取文章详情成功');
-      return mapNews(data);
-    } catch (error) {
-      console.error('❌ 获取文章详情失败:', error);
-      return null;
-    }
-  },
-
-  /**
-   * 获取活动列表
-   */
-  getEvents: async (): Promise<Event[]> => {
-    console.log('🎉 获取活动列表...');
-    try {
-      const { data, error } = await supabase
-        .from('events')
-        .select(`
-          *,
-          publishers (
-            name,
-            avatar
-          )
-        `)
-        .order('published_at', { ascending: false });
-
-      if (error) throw error;
-      
-      console.log(`✅ 获取到 ${data?.length || 0} 个活动`);
-      return (data || []).map(mapEvent);
-    } catch (error) {
-      console.error('❌ 获取活动失败:', error);
-      return [];
-    }
-  },
-
-  /**
-   * 获取单个活动详情
-   */
-  getEventById: async (id: string): Promise<Event | null> => {
-    console.log('🎉 获取活动详情:', id);
-    try {
-      const { data, error } = await supabase
-        .from('events')
-        .select(`
-          *,
-          publishers (
-            name,
-            avatar,
-            bio
-          )
-        `)
-        .eq('id', id)
-        .single();
-
-      if (error) throw error;
-      console.log('✅ 获取活动详情成功');
-      return mapEvent(data);
-    } catch (error) {
-      console.error('❌ 获取活动详情失败:', error);
-      return null;
-    }
-  },
-
-  /**
-   * 上传头像到 Supabase Storage
-   */
-  uploadAvatar: async (file: File, userId: string): Promise<string | null> => {
-    console.log('📤 上传头像...', file.name);
-    try {
-      // 生成唯一文件名
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${userId}_${Date.now()}.${fileExt}`;
-      const filePath = `avatars/${fileName}`;
-
-      // 上传到 Supabase Storage
-      const { data, error } = await supabase.storage
-        .from('avatars')
-        .upload(filePath, file, {
-          cacheControl: '3600',
-          upsert: true
-        });
-
-      if (error) throw error;
-
-      // 获取公开 URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('avatars')
-        .getPublicUrl(filePath);
-
-      console.log('✅ 头像上传成功:', publicUrl);
-      return publicUrl;
-    } catch (error) {
-      console.error('❌ 头像上传失败:', error);
-      return null;
-    }
-  },
-
-  /**
-   * 更新用户信息（包括头像）
-   */
   updateUser: async (userId: string, updates: Partial<{ name: string; avatar: string }>): Promise<User | null> => {
     console.log('🔄 更新用户信息:', userId, updates);
     try {
@@ -404,9 +285,6 @@ export const supabaseService = {
     }
   },
 
-  /**
-   * 更新用户订阅
-   */
   updateSubscriptions: async (userId: string, subscriptions: string[]): Promise<User> => {
     console.log('🔄 更新订阅...', subscriptions);
     try {
@@ -423,6 +301,733 @@ export const supabaseService = {
     } catch (error) {
       console.error('❌ 更新订阅失败:', error);
       throw error;
+    }
+  },
+
+  uploadAvatar: async (file: File, userId: string): Promise<string | null> => {
+    console.log('📤 上传头像...', file.name);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${userId}_${Date.now()}.${fileExt}`;
+      const filePath = `avatars/${fileName}`;
+
+      const { data, error } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: true
+        });
+
+      if (error) throw error;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(filePath);
+
+      console.log('✅ 头像上传成功:', publicUrl);
+      return publicUrl;
+    } catch (error) {
+      console.error('❌ 头像上传失败:', error);
+      return null;
+    }
+  },
+
+  // ==================== 视频相关 ====================
+  
+  getVideos: async (subscriptions?: string[], filters?: SearchFilters): Promise<Video[]> => {
+    console.log('📹 获取视频列表...');
+    try {
+      const userId = getCurrentUserId();
+      let query = supabase
+        .from('videos')
+        .select(`
+          *,
+          publishers (name, avatar)
+        `)
+        .order('published_at', { ascending: false });
+
+      if (subscriptions && subscriptions.length > 0) {
+        query = query.in('category', subscriptions);
+      }
+
+      if (filters?.categories && filters.categories.length > 0) {
+        query = query.in('category', filters.categories);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+
+      const videos = data || [];
+      
+      if (userId && videos.length > 0) {
+        const videoIds = videos.map(v => v.id);
+        
+        const [favoritesData, likesData, progressData] = await Promise.all([
+          supabase.from('favorites').select('content_id').eq('user_id', userId).eq('content_type', 'video').in('content_id', videoIds),
+          supabase.from('likes').select('content_id').eq('user_id', userId).eq('content_type', 'video').in('content_id', videoIds),
+          supabase.from('video_progress').select('video_id, progress_seconds, duration_seconds').eq('user_id', userId).in('video_id', videoIds)
+        ]);
+
+        const favoriteIds = new Set(favoritesData.data?.map(f => f.content_id) || []);
+        const likeIds = new Set(likesData.data?.map(l => l.content_id) || []);
+        const progressMap = new Map(progressData.data?.map(p => [p.video_id, (p.progress_seconds / p.duration_seconds) * 100]) || []);
+
+        return videos.map(v => ({
+          ...mapVideo(v),
+          isFavorited: favoriteIds.has(v.id),
+          isLiked: likeIds.has(v.id),
+          progress: progressMap.get(v.id) || 0
+        }));
+      }
+      
+      console.log(`✅ 获取到 ${videos.length} 个视频`);
+      return videos.map(mapVideo);
+    } catch (error) {
+      console.error('❌ 获取视频失败:', error);
+      return [];
+    }
+  },
+
+  getVideoById: async (id: string): Promise<Video | null> => {
+    console.log('📹 获取视频详情:', id);
+    try {
+      const userId = getCurrentUserId();
+      const { data, error } = await supabase
+        .from('videos')
+        .select(`*, publishers (name, avatar, bio)`)
+        .eq('id', id)
+        .single();
+
+      if (error) throw error;
+
+      const video = mapVideo(data);
+
+      if (userId) {
+        const [favData, likeData, progressData] = await Promise.all([
+          supabase.from('favorites').select('id').eq('user_id', userId).eq('content_id', id).eq('content_type', 'video').maybeSingle(),
+          supabase.from('likes').select('id').eq('user_id', userId).eq('content_id', id).eq('content_type', 'video').maybeSingle(),
+          supabase.from('video_progress').select('progress_seconds, duration_seconds').eq('user_id', userId).eq('video_id', id).maybeSingle()
+        ]);
+
+        video.isFavorited = !!favData.data;
+        video.isLiked = !!likeData.data;
+        if (progressData.data) {
+          video.progress = (progressData.data.progress_seconds / progressData.data.duration_seconds) * 100;
+        }
+      }
+
+      console.log('✅ 获取视频详情成功');
+      return video;
+    } catch (error) {
+      console.error('❌ 获取视频详情失败:', error);
+      return null;
+    }
+  },
+
+  // ==================== 新闻相关 ====================
+  
+  getNews: async (subscriptions?: string[], filters?: SearchFilters): Promise<NewsItem[]> => {
+    console.log('📰 获取新闻列表...');
+    try {
+      const userId = getCurrentUserId();
+      let query = supabase
+        .from('news')
+        .select(`*, publishers (name, avatar)`)
+        .order('published_at', { ascending: false });
+
+      if (subscriptions && subscriptions.length > 0) {
+        query = query.in('category', subscriptions);
+      }
+
+      if (filters?.categories && filters.categories.length > 0) {
+        query = query.in('category', filters.categories);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+
+      const newsItems = data || [];
+      
+      if (userId && newsItems.length > 0) {
+        const newsIds = newsItems.map(n => n.id);
+        
+        const [favoritesData, likesData] = await Promise.all([
+          supabase.from('favorites').select('content_id').eq('user_id', userId).eq('content_type', 'news').in('content_id', newsIds),
+          supabase.from('likes').select('content_id').eq('user_id', userId).eq('content_type', 'news').in('content_id', newsIds)
+        ]);
+
+        const favoriteIds = new Set(favoritesData.data?.map(f => f.content_id) || []);
+        const likeIds = new Set(likesData.data?.map(l => l.content_id) || []);
+
+        return newsItems.map(n => ({
+          ...mapNews(n),
+          isFavorited: favoriteIds.has(n.id),
+          isLiked: likeIds.has(n.id)
+        }));
+      }
+      
+      console.log(`✅ 获取到 ${newsItems.length} 篇文章`);
+      return newsItems.map(mapNews);
+    } catch (error) {
+      console.error('❌ 获取新闻失败:', error);
+      return [];
+    }
+  },
+
+  getNewsById: async (id: string): Promise<NewsItem | null> => {
+    console.log('📰 获取文章详情:', id);
+    try {
+      const userId = getCurrentUserId();
+      const { data, error } = await supabase
+        .from('news')
+        .select(`*, publishers (name, avatar, bio)`)
+        .eq('id', id)
+        .single();
+
+      if (error) throw error;
+
+      const news = mapNews(data);
+
+      if (userId) {
+        const [favData, likeData] = await Promise.all([
+          supabase.from('favorites').select('id').eq('user_id', userId).eq('content_id', id).eq('content_type', 'news').maybeSingle(),
+          supabase.from('likes').select('id').eq('user_id', userId).eq('content_id', id).eq('content_type', 'news').maybeSingle()
+        ]);
+
+        news.isFavorited = !!favData.data;
+        news.isLiked = !!likeData.data;
+      }
+
+      console.log('✅ 获取文章详情成功');
+      return news;
+    } catch (error) {
+      console.error('❌ 获取文章详情失败:', error);
+      return null;
+    }
+  },
+
+  // ==================== 活动相关 ====================
+  
+  getEvents: async (): Promise<Event[]> => {
+    console.log('🎉 获取活动列表...');
+    try {
+      const userId = getCurrentUserId();
+      const { data, error } = await supabase
+        .from('events')
+        .select(`*, publishers (name, avatar)`)
+        .order('published_at', { ascending: false });
+
+      if (error) throw error;
+
+      const events = data || [];
+      
+      if (userId && events.length > 0) {
+        const eventIds = events.map(e => e.id);
+        
+        const [favoritesData, likesData] = await Promise.all([
+          supabase.from('favorites').select('content_id').eq('user_id', userId).eq('content_type', 'event').in('content_id', eventIds),
+          supabase.from('likes').select('content_id').eq('user_id', userId).eq('content_type', 'event').in('content_id', eventIds)
+        ]);
+
+        const favoriteIds = new Set(favoritesData.data?.map(f => f.content_id) || []);
+        const likeIds = new Set(likesData.data?.map(l => l.content_id) || []);
+
+        return events.map(e => ({
+          ...mapEvent(e),
+          isFavorited: favoriteIds.has(e.id),
+          isLiked: likeIds.has(e.id)
+        }));
+      }
+      
+      console.log(`✅ 获取到 ${events.length} 个活动`);
+      return events.map(mapEvent);
+    } catch (error) {
+      console.error('❌ 获取活动失败:', error);
+      return [];
+    }
+  },
+
+  getEventById: async (id: string): Promise<Event | null> => {
+    console.log('🎉 获取活动详情:', id);
+    try {
+      const userId = getCurrentUserId();
+      const { data, error } = await supabase
+        .from('events')
+        .select(`*, publishers (name, avatar, bio)`)
+        .eq('id', id)
+        .single();
+
+      if (error) throw error;
+
+      const event = mapEvent(data);
+
+      if (userId) {
+        const [favData, likeData] = await Promise.all([
+          supabase.from('favorites').select('id').eq('user_id', userId).eq('content_id', id).eq('content_type', 'event').maybeSingle(),
+          supabase.from('likes').select('id').eq('user_id', userId).eq('content_id', id).eq('content_type', 'event').maybeSingle()
+        ]);
+
+        event.isFavorited = !!favData.data;
+        event.isLiked = !!likeData.data;
+      }
+
+      console.log('✅ 获取活动详情成功');
+      return event;
+    } catch (error) {
+      console.error('❌ 获取活动详情失败:', error);
+      return null;
+    }
+  },
+
+  // ==================== 收藏功能 ====================
+  
+  toggleFavorite: async (contentId: string, contentType: 'video' | 'news' | 'event'): Promise<boolean> => {
+    console.log('⭐ 切换收藏状态...', contentId, contentType);
+    try {
+      const userId = getCurrentUserId();
+      if (!userId) throw new Error('用户未登录');
+
+      const { data: existing } = await supabase
+        .from('favorites')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('content_id', contentId)
+        .eq('content_type', contentType)
+        .maybeSingle();
+
+      if (existing) {
+        await supabase.from('favorites').delete().eq('id', existing.id);
+        console.log('✅ 已取消收藏');
+        return false;
+      } else {
+        await supabase.from('favorites').insert({
+          user_id: userId,
+          content_id: contentId,
+          content_type: contentType
+        });
+        console.log('✅ 已添加收藏');
+        return true;
+      }
+    } catch (error) {
+      console.error('❌ 收藏操作失败:', error);
+      throw error;
+    }
+  },
+
+  getFavorites: async (contentType?: 'video' | 'news' | 'event'): Promise<any[]> => {
+    console.log('⭐ 获取收藏列表...');
+    try {
+      const userId = getCurrentUserId();
+      if (!userId) return [];
+
+      let query = supabase
+        .from('favorites')
+        .select('content_id, content_type, created_at')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
+
+      if (contentType) {
+        query = query.eq('content_type', contentType);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+
+      console.log(`✅ 获取到 ${data?.length || 0} 个收藏`);
+      return data || [];
+    } catch (error) {
+      console.error('❌ 获取收藏失败:', error);
+      return [];
+    }
+  },
+
+  // ==================== 点赞功能 ====================
+  
+  toggleLike: async (contentId: string, contentType: 'video' | 'news' | 'event' | 'comment'): Promise<boolean> => {
+    console.log('👍 切换点赞状态...', contentId, contentType);
+    try {
+      const userId = getCurrentUserId();
+      if (!userId) throw new Error('用户未登录');
+
+      const { data: existing } = await supabase
+        .from('likes')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('content_id', contentId)
+        .eq('content_type', contentType)
+        .maybeSingle();
+
+      if (existing) {
+        await supabase.from('likes').delete().eq('id', existing.id);
+        console.log('✅ 已取消点赞');
+        return false;
+      } else {
+        await supabase.from('likes').insert({
+          user_id: userId,
+          content_id: contentId,
+          content_type: contentType
+        });
+        console.log('✅ 已点赞');
+        return true;
+      }
+    } catch (error) {
+      console.error('❌ 点赞操作失败:', error);
+      throw error;
+    }
+  },
+
+  // ==================== 评论功能 ====================
+  
+  getComments: async (contentId: string, contentType: 'video' | 'news' | 'event'): Promise<Comment[]> => {
+    console.log('💬 获取评论列表...', contentId, contentType);
+    try {
+      const userId = getCurrentUserId();
+      const { data, error } = await supabase
+        .from('comments')
+        .select(`
+          *,
+          users (name, avatar)
+        `)
+        .eq('content_id', contentId)
+        .eq('content_type', contentType)
+        .is('parent_id', null)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      const comments = data || [];
+      
+      for (const comment of comments) {
+        const { data: replies } = await supabase
+          .from('comments')
+          .select(`*, users (name, avatar)`)
+          .eq('parent_id', comment.id)
+          .order('created_at', { ascending: true });
+        
+        comment.replies = replies || [];
+      }
+
+      if (userId && comments.length > 0) {
+        const commentIds = comments.flatMap(c => [c.id, ...(c.replies?.map((r: any) => r.id) || [])]);
+        const { data: likesData } = await supabase
+          .from('likes')
+          .select('content_id')
+          .eq('user_id', userId)
+          .eq('content_type', 'comment')
+          .in('content_id', commentIds);
+
+        const likeIds = new Set(likesData?.map(l => l.content_id) || []);
+        
+        comments.forEach(c => {
+          c.is_liked = likeIds.has(c.id);
+          c.replies?.forEach((r: any) => {
+            r.is_liked = likeIds.has(r.id);
+          });
+        });
+      }
+
+      console.log(`✅ 获取到 ${comments.length} 条评论`);
+      return comments.map(mapComment);
+    } catch (error) {
+      console.error('❌ 获取评论失败:', error);
+      return [];
+    }
+  },
+
+  addComment: async (contentId: string, contentType: 'video' | 'news' | 'event', content: string, parentId?: string): Promise<Comment | null> => {
+    console.log('💬 添加评论...', contentId, contentType);
+    try {
+      const userId = getCurrentUserId();
+      if (!userId) throw new Error('用户未登录');
+
+      const { data, error } = await supabase
+        .from('comments')
+        .insert({
+          user_id: userId,
+          content_id: contentId,
+          content_type: contentType,
+          content,
+          parent_id: parentId || null
+        })
+        .select(`*, users (name, avatar)`)
+        .single();
+
+      if (error) throw error;
+
+      console.log('✅ 评论成功');
+      return mapComment(data);
+    } catch (error) {
+      console.error('❌ 评论失败:', error);
+      return null;
+    }
+  },
+
+  deleteComment: async (commentId: string): Promise<boolean> => {
+    console.log('🗑️ 删除评论...', commentId);
+    try {
+      const userId = getCurrentUserId();
+      if (!userId) throw new Error('用户未登录');
+
+      const { error } = await supabase
+        .from('comments')
+        .delete()
+        .eq('id', commentId)
+        .eq('user_id', userId);
+
+      if (error) throw error;
+
+      console.log('✅ 删除成功');
+      return true;
+    } catch (error) {
+      console.error('❌ 删除失败:', error);
+      return false;
+    }
+  },
+
+  // ==================== 视频进度 ====================
+  
+  saveVideoProgress: async (videoId: string, progressSeconds: number, durationSeconds: number): Promise<boolean> => {
+    console.log('💾 保存视频进度...', videoId, progressSeconds);
+    try {
+      const userId = getCurrentUserId();
+      if (!userId) return false;
+
+      const completed = progressSeconds >= durationSeconds * 0.9;
+
+      const { error } = await supabase
+        .from('video_progress')
+        .upsert({
+          user_id: userId,
+          video_id: videoId,
+          progress_seconds: progressSeconds,
+          duration_seconds: durationSeconds,
+          completed,
+          last_watched: new Date().toISOString()
+        }, {
+          onConflict: 'user_id,video_id'
+        });
+
+      if (error) throw error;
+
+      console.log('✅ 进度保存成功');
+      return true;
+    } catch (error) {
+      console.error('❌ 进度保存失败:', error);
+      return false;
+    }
+  },
+
+  getVideoProgress: async (videoId: string): Promise<VideoProgress | null> => {
+    console.log('📊 获取视频进度...', videoId);
+    try {
+      const userId = getCurrentUserId();
+      if (!userId) return null;
+
+      const { data, error } = await supabase
+        .from('video_progress')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('video_id', videoId)
+        .maybeSingle();
+
+      if (error) throw error;
+      if (!data) return null;
+
+      console.log('✅ 获取进度成功');
+      return {
+        videoId: data.video_id,
+        progressSeconds: data.progress_seconds,
+        durationSeconds: data.duration_seconds,
+        completed: data.completed,
+        lastWatched: data.last_watched
+      };
+    } catch (error) {
+      console.error('❌ 获取进度失败:', error);
+      return null;
+    }
+  },
+
+  // ==================== 通知功能 ====================
+  
+  getNotifications: async (): Promise<Notification[]> => {
+    console.log('🔔 获取通知列表...');
+    try {
+      const userId = getCurrentUserId();
+      if (!userId) return [];
+
+      const { data, error } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(50);
+
+      if (error) throw error;
+
+      console.log(`✅ 获取到 ${data?.length || 0} 条通知`);
+      return data?.map(n => ({
+        id: n.id,
+        title: n.title,
+        message: n.message,
+        type: n.type,
+        relatedId: n.related_id,
+        read: n.read,
+        createdAt: n.created_at
+      })) || [];
+    } catch (error) {
+      console.error('❌ 获取通知失败:', error);
+      return [];
+    }
+  },
+
+  markNotificationAsRead: async (notificationId: string): Promise<boolean> => {
+    console.log('✅ 标记通知已读...', notificationId);
+    try {
+      const { error } = await supabase
+        .from('notifications')
+        .update({ read: true })
+        .eq('id', notificationId);
+
+      if (error) throw error;
+      console.log('✅ 标记成功');
+      return true;
+    } catch (error) {
+      console.error('❌ 标记失败:', error);
+      return false;
+    }
+  },
+
+  markAllNotificationsAsRead: async (): Promise<boolean> => {
+    console.log('✅ 标记所有通知已读...');
+    try {
+      const userId = getCurrentUserId();
+      if (!userId) return false;
+
+      const { error } = await supabase
+        .from('notifications')
+        .update({ read: true })
+        .eq('user_id', userId)
+        .eq('read', false);
+
+      if (error) throw error;
+      console.log('✅ 标记成功');
+      return true;
+    } catch (error) {
+      console.error('❌ 标记失败:', error);
+      return false;
+    }
+  },
+
+  getUnreadNotificationCount: async (): Promise<number> => {
+    try {
+      const userId = getCurrentUserId();
+      if (!userId) return 0;
+
+      const { count, error } = await supabase
+        .from('notifications')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', userId)
+        .eq('read', false);
+
+      if (error) throw error;
+      return count || 0;
+    } catch (error) {
+      console.error('❌ 获取未读数量失败:', error);
+      return 0;
+    }
+  },
+
+  // ==================== 搜索功能 ====================
+  
+  searchContent: async (query: string, contentType?: 'video' | 'news' | 'event', filters?: SearchFilters): Promise<any[]> => {
+    console.log('🔍 搜索内容...', query, contentType);
+    try {
+      if (!query.trim()) return [];
+
+      const results: any[] = [];
+
+      // 搜索视频
+      if (!contentType || contentType === 'video') {
+        let videoQuery = supabase
+          .from('videos')
+          .select(`*, publishers (name, avatar)`)
+          .textSearch('search_vector', query)
+          .limit(20);
+
+        if (filters?.categories && filters.categories.length > 0) {
+          videoQuery = videoQuery.in('category', filters.categories);
+        }
+
+        const { data: videos } = await videoQuery;
+        if (videos) {
+          results.push(...videos.map(v => ({ ...mapVideo(v), _type: 'video' })));
+        }
+      }
+
+      // 搜索新闻
+      if (!contentType || contentType === 'news') {
+        let newsQuery = supabase
+          .from('news')
+          .select(`*, publishers (name, avatar)`)
+          .textSearch('search_vector', query)
+          .limit(20);
+
+        if (filters?.categories && filters.categories.length > 0) {
+          newsQuery = newsQuery.in('category', filters.categories);
+        }
+
+        const { data: news } = await newsQuery;
+        if (news) {
+          results.push(...news.map(n => ({ ...mapNews(n), _type: 'news' })));
+        }
+      }
+
+      // 搜索活动
+      if (!contentType || contentType === 'event') {
+        const { data: events } = await supabase
+          .from('events')
+          .select(`*, publishers (name, avatar)`)
+          .textSearch('search_vector', query)
+          .limit(20);
+
+        if (events) {
+          results.push(...events.map(e => ({ ...mapEvent(e), _type: 'event' })));
+        }
+      }
+
+      console.log(`✅ 搜索到 ${results.length} 条结果`);
+      return results;
+    } catch (error) {
+      console.error('❌ 搜索失败:', error);
+      return [];
+    }
+  },
+
+  // ==================== 分类筛选 ====================
+  
+  getCategories: async (): Promise<string[]> => {
+    console.log('📁 获取分类列表...');
+    try {
+      const { data: videos } = await supabase
+        .from('videos')
+        .select('category')
+        .not('category', 'is', null);
+
+      const { data: news } = await supabase
+        .from('news')
+        .select('category')
+        .not('category', 'is', null);
+
+      const categories = new Set<string>();
+      videos?.forEach(v => categories.add(v.category));
+      news?.forEach(n => categories.add(n.category));
+
+      const result = Array.from(categories).sort();
+      console.log(`✅ 获取到 ${result.length} 个分类`);
+      return result;
+    } catch (error) {
+      console.error('❌ 获取分类失败:', error);
+      return [];
     }
   }
 };
