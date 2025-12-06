@@ -1,7 +1,9 @@
+// components/EventDetail.tsx - 增强版活动详情页
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Share2, Heart, MapPin, Calendar, Users } from 'lucide-react';
+import { ArrowLeft, Share2, Heart, MapPin, Calendar, Users, Bookmark } from 'lucide-react';
 import { supabaseService } from '../services/supabase';
 import type { Event } from '../services/supabase';
+import { Comments } from './Comments'; // 新增：导入评论组件
 
 interface EventDetailProps {
   eventId: string;
@@ -11,6 +13,7 @@ interface EventDetailProps {
 export const EventDetail: React.FC<EventDetailProps> = ({ eventId, onBack }) => {
   const [event, setEvent] = useState<Event | null>(null);
   const [liked, setLiked] = useState(false);
+  const [favorited, setFavorited] = useState(false); // 新增：收藏状态
   const [joined, setJoined] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -22,9 +25,11 @@ export const EventDetail: React.FC<EventDetailProps> = ({ eventId, onBack }) => 
     try {
       setLoading(true);
       const data = await supabaseService.getEventById(eventId);
-      setEvent(data);
       if (data) {
-        setLiked(data.joined);
+        setEvent(data);
+        setLiked(data.isLiked || false); // 新增：设置点赞状态
+        setFavorited(data.isFavorited || false); // 新增：设置收藏状态
+        setJoined(data.joined);
       }
     } catch (error) {
       console.error('加载活动失败:', error);
@@ -49,6 +54,41 @@ export const EventDetail: React.FC<EventDetailProps> = ({ eventId, onBack }) => 
       }
     } catch (error) {
       console.error('分享失败:', error);
+    }
+  };
+
+  // 新增：处理点赞
+  const handleLike = async () => {
+    try {
+      const isLiked = await supabaseService.toggleLike(eventId, 'event');
+      setLiked(isLiked);
+      if (event) {
+        setEvent({
+          ...event,
+          isLiked,
+          likes: event.likes + (isLiked ? 1 : -1)
+        });
+      }
+    } catch (error) {
+      console.error('点赞失败:', error);
+      alert('操作失败，请重试');
+    }
+  };
+
+  // 新增：处理收藏
+  const handleFavorite = async () => {
+    try {
+      const isFavorited = await supabaseService.toggleFavorite(eventId, 'event');
+      setFavorited(isFavorited);
+      if (event) {
+        setEvent({
+          ...event,
+          isFavorited
+        });
+      }
+    } catch (error) {
+      console.error('收藏失败:', error);
+      alert('操作失败，请重试');
     }
   };
 
@@ -86,8 +126,19 @@ export const EventDetail: React.FC<EventDetailProps> = ({ eventId, onBack }) => 
             <ArrowLeft size={24} className="text-gray-700" />
           </button>
           <div className="flex items-center space-x-2">
+            {/* 新增：收藏按钮 */}
             <button
-              onClick={() => setLiked(!liked)}
+              onClick={handleFavorite}
+              className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+            >
+              <Bookmark
+                size={24}
+                className={favorited ? 'text-yellow-500 fill-yellow-500' : 'text-gray-700'}
+              />
+            </button>
+            {/* 修改：点赞按钮调用新的处理函数 */}
+            <button
+              onClick={handleLike}
               className="p-2 hover:bg-gray-100 rounded-full transition-colors"
             >
               <Heart
@@ -167,6 +218,18 @@ export const EventDetail: React.FC<EventDetailProps> = ({ eventId, onBack }) => 
             </div>
           </div>
 
+          {/* Stats - 修改：显示真实的点赞和评论数 */}
+          <div className="flex items-center space-x-6 mb-6 pb-6 border-b border-gray-100">
+            <div className="flex items-center text-gray-600">
+              <Heart size={18} className="mr-2" />
+              <span className="text-sm">{event.likes} 人感兴趣</span>
+            </div>
+            {/* 新增：显示评论数 */}
+            <div className="flex items-center text-gray-600">
+              <span className="text-sm">{event.commentsCount || 0} 条评论</span>
+            </div>
+          </div>
+
           {/* Description */}
           {event.description && (
             <div className="mb-6">
@@ -211,8 +274,47 @@ export const EventDetail: React.FC<EventDetailProps> = ({ eventId, onBack }) => 
             </div>
           </div>
 
+          {/* 新增：快捷操作栏 */}
+          <div className="flex items-center justify-center space-x-3 py-6 border-t border-b border-gray-100 mb-6">
+            <button
+              onClick={handleLike}
+              className={`flex items-center space-x-2 px-5 py-2.5 rounded-full transition-all ${
+                liked
+                  ? 'bg-red-50 text-red-600 border-2 border-red-200'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+            >
+              <Heart
+                size={18}
+                className={liked ? 'fill-red-600' : ''}
+              />
+              <span className="font-medium text-sm">{liked ? '已感兴趣' : '感兴趣'}</span>
+            </button>
+            <button
+              onClick={handleFavorite}
+              className={`flex items-center space-x-2 px-5 py-2.5 rounded-full transition-all ${
+                favorited
+                  ? 'bg-yellow-50 text-yellow-600 border-2 border-yellow-200'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+            >
+              <Bookmark
+                size={18}
+                className={favorited ? 'fill-yellow-600' : ''}
+              />
+              <span className="font-medium text-sm">{favorited ? '已收藏' : '收藏'}</span>
+            </button>
+            <button
+              onClick={handleShare}
+              className="flex items-center space-x-2 px-5 py-2.5 rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200 transition-all"
+            >
+              <Share2 size={18} />
+              <span className="font-medium text-sm">分享</span>
+            </button>
+          </div>
+
           {/* Important Info */}
-          <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+          <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6">
             <div className="flex items-start">
               <div className="text-2xl mr-3">⚠️</div>
               <div>
@@ -226,6 +328,14 @@ export const EventDetail: React.FC<EventDetailProps> = ({ eventId, onBack }) => 
             </div>
           </div>
         </div>
+      </div>
+
+      {/* 新增：评论区 - 添加在内容底部，Fixed Button 之前 */}
+      <div className="mt-4 mb-20">
+        <Comments 
+          contentId={eventId} 
+          contentType="event" 
+        />
       </div>
 
       {/* Fixed Bottom Button */}
