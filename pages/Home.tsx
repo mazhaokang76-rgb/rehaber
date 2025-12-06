@@ -299,7 +299,7 @@ export const Home: React.FC = () => {
                           className={video.isLiked ? 'text-red-500 fill-red-500' : 'text-gray-400'}
                         />
                         {video.likesCount && video.likesCount > 0 && (
-                          <span className="text-[10px] text-gray-400">{video.likesCount}</span>
+                          <span className="text-[8px] text-gray-400">{video.likesCount}</span>
                         )}
                       </button>
                     </div>
