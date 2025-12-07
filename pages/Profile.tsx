@@ -1,7 +1,10 @@
+// pages/Profile.tsx - 增强版个人中心
 import React, { useState, useEffect } from 'react';
-import { Settings, ChevronRight, Award, BookOpen, Activity, LogOut, Bell } from 'lucide-react';
+import { Settings, ChevronRight, Award, BookOpen, Activity, LogOut, Bell, Bookmark, Calendar, Video } from 'lucide-react';
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { ProfileEdit } from '../components/ProfileEdit';
+import { MyFavorites } from '../components/MyFavorites';
+import { supabaseService } from '../services/supabase';
 
 // 周活动数据
 const weeklyActivityData = [
@@ -14,7 +17,17 @@ const weeklyActivityData = [
   { name: '周日', mins: 30 },
 ];
 
-export const Profile: React.FC = () => {
+interface ProfileProps {
+  onSelectVideo?: (id: string) => void;
+  onSelectNews?: (id: string) => void;
+  onSelectEvent?: (id: string) => void;
+}
+
+export const Profile: React.FC<ProfileProps> = ({ 
+  onSelectVideo,
+  onSelectNews,
+  onSelectEvent
+}) => {
   const [currentUser, setCurrentUser] = useState({
     id: '',
     name: '用户',
@@ -28,18 +41,43 @@ export const Profile: React.FC = () => {
     }
   });
   const [isEditing, setIsEditing] = useState(false);
+  const [showFavorites, setShowFavorites] = useState(false);
+  const [favoritesCount, setFavoritesCount] = useState(0);
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
 
   useEffect(() => {
-    // 从 localStorage 获取用户信息
+    loadUserData();
+    loadFavoritesCount();
+    loadUnreadNotifications();
+  }, []);
+
+  const loadUserData = () => {
     const userStr = localStorage.getItem('rehaber_user');
     if (userStr) {
       const user = JSON.parse(userStr);
       setCurrentUser(user);
     }
-  }, []);
+  };
+
+  const loadFavoritesCount = async () => {
+    try {
+      const favorites = await supabaseService.getFavorites();
+      setFavoritesCount(favorites.length);
+    } catch (error) {
+      console.error('加载收藏数失败:', error);
+    }
+  };
+
+  const loadUnreadNotifications = async () => {
+    try {
+      const count = await supabaseService.getUnreadNotificationCount();
+      setUnreadNotifications(count);
+    } catch (error) {
+      console.error('加载通知数失败:', error);
+    }
+  };
 
   const handleSaveProfile = (name: string, avatar: string) => {
-    // 更新用户信息
     const updatedUser = { ...currentUser, name, avatar };
     setCurrentUser(updatedUser);
     localStorage.setItem('rehaber_user', JSON.stringify(updatedUser));
@@ -63,6 +101,21 @@ export const Profile: React.FC = () => {
         currentAvatar={currentUser.avatar}
         onSave={handleSaveProfile}
         onBack={() => setIsEditing(false)}
+      />
+    );
+  }
+
+  // 如果查看收藏，显示收藏页面
+  if (showFavorites) {
+    return (
+      <MyFavorites
+        onBack={() => {
+          setShowFavorites(false);
+          loadFavoritesCount(); // 刷新收藏数
+        }}
+        onSelectVideo={onSelectVideo}
+        onSelectNews={onSelectNews}
+        onSelectEvent={onSelectEvent}
       />
     );
   }
@@ -145,17 +198,49 @@ export const Profile: React.FC = () => {
             </div>
         </div>
 
+        {/* Quick Stats Cards */}
+        <div className="grid grid-cols-2 gap-3">
+          <button
+            onClick={() => setShowFavorites(true)}
+            className="bg-white rounded-2xl p-4 shadow-sm hover:shadow-md transition-all active:scale-95"
+          >
+            <div className="flex items-center justify-between mb-2">
+              <Bookmark size={24} className="text-yellow-500" />
+              <ChevronRight size={18} className="text-gray-400" />
+            </div>
+            <div className="text-2xl font-bold text-gray-900 mb-1">{favoritesCount}</div>
+            <div className="text-xs text-gray-500 font-medium">我的收藏</div>
+          </button>
+
+          <button
+            className="bg-white rounded-2xl p-4 shadow-sm hover:shadow-md transition-all active:scale-95"
+          >
+            <div className="flex items-center justify-between mb-2">
+              <Video size={24} className="text-purple-500" />
+              <ChevronRight size={18} className="text-gray-400" />
+            </div>
+            <div className="text-2xl font-bold text-gray-900 mb-1">12</div>
+            <div className="text-xs text-gray-500 font-medium">观看历史</div>
+          </button>
+        </div>
+
         {/* Menu List */}
         <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
             {[
-                { icon: Award, label: '我的成就', value: '已解锁 12' },
-                { icon: BookOpen, label: '我的订阅', value: '复健, 核心' },
-                { icon: Bell, label: '消息通知', value: '开启' },
+                { icon: Award, label: '我的成就', value: '已解锁 12', badge: null },
+                { icon: Calendar, label: '我的活动', value: '2 个报名', badge: null },
+                { icon: BookOpen, label: '我的订阅', value: '复健, 核心', badge: null },
+                { icon: Bell, label: '消息通知', value: '开启', badge: unreadNotifications > 0 ? unreadNotifications : null },
             ].map((item, idx) => (
                 <button key={idx} className="w-full flex items-center justify-between p-4 hover:bg-gray-50 transition-colors border-b border-gray-50 last:border-0">
                     <div className="flex items-center space-x-3">
-                        <div className="bg-gray-100 p-2 rounded-full text-gray-600">
+                        <div className="bg-gray-100 p-2 rounded-full text-gray-600 relative">
                             <item.icon size={18} />
+                            {item.badge && (
+                              <div className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold min-w-[16px] h-4 px-1 rounded-full flex items-center justify-center">
+                                {item.badge}
+                              </div>
+                            )}
                         </div>
                         <span className="font-medium text-gray-700">{item.label}</span>
                     </div>
