@@ -23,7 +23,11 @@ interface ProfileProps {
   onSelectEvent?: (id: string) => void;
 }
 
-export const Profile: React.FC<ProfileProps> = ({ onSelectVideo, onSelectNews, onSelectEvent }) => {
+export const Profile: React.FC<ProfileProps> = ({ 
+  onSelectVideo,
+  onSelectNews,
+  onSelectEvent
+}) => {
   const [currentUser, setCurrentUser] = useState({
     id: '',
     name: '用户',
