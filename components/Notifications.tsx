@@ -80,9 +80,10 @@ export const Notifications: React.FC<NotificationsProps> = ({ onClose }) => {
   const unreadCount = notifications.filter(n => !n.read).length;
 
   return (
-    <div className="fixed inset-0 bg-white z-50 flex flex-col">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-100 px-4 py-3">
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-end" onClick={onClose}>
+      <div className="bg-white w-full max-w-md mx-auto rounded-t-3xl max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+        {/* Header */}
+        <div className="bg-white border-b border-gray-100 px-4 py-3 rounded-t-3xl flex-shrink-0">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center space-x-2">
             <button
@@ -197,6 +198,7 @@ export const Notifications: React.FC<NotificationsProps> = ({ onClose }) => {
         )}
       </div>
     </div>
+  </div>
   );
 };
 
