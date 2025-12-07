@@ -585,9 +585,14 @@ export const supabaseService = {
     console.log('⭐ 切换收藏状态...', contentId, contentType);
     try {
       const userId = getCurrentUserId();
-      if (!userId) throw new Error('用户未登录');
+      if (!userId) {
+        console.error('用户未登录');
+        throw new Error('用户未登录');
+      }
 
-      const { data: existing } = await supabase
+      console.log('当前用户ID:', userId);
+
+      const { data: existing, error: queryError } = await supabase
         .from('favorites')
         .select('id')
         .eq('user_id', userId)
@@ -595,17 +600,41 @@ export const supabaseService = {
         .eq('content_type', contentType)
         .maybeSingle();
 
+      if (queryError) {
+        console.error('查询收藏失败:', queryError);
+        throw queryError;
+      }
+
       if (existing) {
-        await supabase.from('favorites').delete().eq('id', existing.id);
+        console.log('已收藏，准备取消...', existing.id);
+        const { error: deleteError } = await supabase
+          .from('favorites')
+          .delete()
+          .eq('id', existing.id);
+        
+        if (deleteError) {
+          console.error('取消收藏失败:', deleteError);
+          throw deleteError;
+        }
         console.log('✅ 已取消收藏');
         return false;
       } else {
-        await supabase.from('favorites').insert({
-          user_id: userId,
-          content_id: contentId,
-          content_type: contentType
-        });
-        console.log('✅ 已添加收藏');
+        console.log('未收藏，准备添加...');
+        const { data: inserted, error: insertError } = await supabase
+          .from('favorites')
+          .insert({
+            user_id: userId,
+            content_id: contentId,
+            content_type: contentType
+          })
+          .select()
+          .single();
+
+        if (insertError) {
+          console.error('添加收藏失败:', insertError);
+          throw insertError;
+        }
+        console.log('✅ 已添加收藏', inserted);
         return true;
       }
     } catch (error) {
@@ -615,14 +644,17 @@ export const supabaseService = {
   },
 
   getFavorites: async (contentType?: 'video' | 'news' | 'event'): Promise<any[]> => {
-    console.log('⭐ 获取收藏列表...');
+    console.log('⭐ 获取收藏列表...', contentType);
     try {
       const userId = getCurrentUserId();
-      if (!userId) return [];
+      if (!userId) {
+        console.log('用户未登录');
+        return [];
+      }
 
       let query = supabase
         .from('favorites')
-        .select('content_id, content_type, created_at')
+        .select('*')
         .eq('user_id', userId)
         .order('created_at', { ascending: false });
 
@@ -631,7 +663,11 @@ export const supabaseService = {
       }
 
       const { data, error } = await query;
-      if (error) throw error;
+      
+      if (error) {
+        console.error('查询收藏失败:', error);
+        throw error;
+      }
 
       console.log(`✅ 获取到 ${data?.length || 0} 个收藏`);
       return data || [];
@@ -1027,6 +1063,154 @@ export const supabaseService = {
       return result;
     } catch (error) {
       console.error('❌ 获取分类失败:', error);
+      return [];
+    }
+  },
+
+  // ==================== 活动报名功能 ====================
+  
+  /**
+   * 报名/取消报名活动
+   */
+  registerEvent: async (eventId: string): Promise<boolean> => {
+    console.log('📝 切换报名状态...', eventId);
+    try {
+      const userId = getCurrentUserId();
+      if (!userId) {
+        console.error('用户未登录');
+        throw new Error('请先登录');
+      }
+
+      console.log('当前用户ID:', userId);
+
+      // 检查是否已报名
+      const { data: existing, error: queryError } = await supabase
+        .from('event_registrations')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('event_id', eventId)
+        .maybeSingle();
+
+      if (queryError) {
+        console.error('查询报名状态失败:', queryError);
+        throw queryError;
+      }
+
+      if (existing) {
+        // 已报名，取消报名
+        console.log('已报名，准备取消...', existing.id);
+        const { error: deleteError } = await supabase
+          .from('event_registrations')
+          .delete()
+          .eq('id', existing.id);
+        
+        if (deleteError) {
+          console.error('取消报名失败:', deleteError);
+          throw deleteError;
+        }
+        console.log('✅ 已取消报名');
+        return false;
+      } else {
+        // 未报名，添加报名
+        console.log('未报名，准备添加...');
+        const { data: inserted, error: insertError } = await supabase
+          .from('event_registrations')
+          .insert({
+            user_id: userId,
+            event_id: eventId,
+            reminded_24h: false,
+            reminded_1h: false
+          })
+          .select()
+          .single();
+
+        if (insertError) {
+          console.error('报名失败:', insertError);
+          throw insertError;
+        }
+
+        console.log('✅ 报名成功', inserted);
+
+        // 创建报名成功通知
+        try {
+          await supabase
+            .from('notifications')
+            .insert({
+              user_id: userId,
+              title: '报名成功',
+              message: '您已成功报名活动，我们会在活动开始前提醒您',
+              type: 'event',
+              related_id: eventId,
+              read: false
+            });
+          console.log('✅ 已创建报名通知');
+        } catch (notifError) {
+          console.error('创建通知失败:', notifError);
+          // 通知失败不影响报名
+        }
+
+        return true;
+      }
+    } catch (error) {
+      console.error('❌ 报名操作失败:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * 检查是否已报名
+   */
+  checkEventRegistration: async (eventId: string): Promise<boolean> => {
+    try {
+      const userId = getCurrentUserId();
+      if (!userId) return false;
+
+      const { data, error } = await supabase
+        .from('event_registrations')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('event_id', eventId)
+        .maybeSingle();
+
+      if (error) {
+        console.error('检查报名状态失败:', error);
+        return false;
+      }
+
+      return !!data;
+    } catch (error) {
+      console.error('检查报名状态失败:', error);
+      return false;
+    }
+  },
+
+  /**
+   * 获取用户的活动报名列表
+   */
+  getMyEventRegistrations: async (): Promise<any[]> => {
+    console.log('📅 获取我的活动报名...');
+    try {
+      const userId = getCurrentUserId();
+      if (!userId) return [];
+
+      const { data, error } = await supabase
+        .from('event_registrations')
+        .select(`
+          *,
+          events (
+            *,
+            publishers (name, avatar)
+          )
+        `)
+        .eq('user_id', userId)
+        .order('registered_at', { ascending: false });
+
+      if (error) throw error;
+
+      console.log(`✅ 获取到 ${data?.length || 0} 个报名`);
+      return data || [];
+    } catch (error) {
+      console.error('❌ 获取报名列表失败:', error);
       return [];
     }
   }
