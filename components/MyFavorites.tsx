@@ -3,6 +3,20 @@ import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Bookmark, Play, Calendar, Clock, Trash2 } from 'lucide-react';
 import { supabaseService } from '../services/supabase';
 
+// 辅助函数：获取当前用户ID
+const getCurrentUserId = (): string | null => {
+  try {
+    const userStr = localStorage.getItem('rehaber_user');
+    if (userStr) {
+      const user = JSON.parse(userStr);
+      return user.id;
+    }
+  } catch (error) {
+    console.error('获取用户ID失败:', error);
+  }
+  return null;
+};
+
 interface MyFavoritesProps {
   onBack: () => void;
   onSelectVideo?: (id: string) => void;
@@ -30,6 +44,8 @@ export const MyFavorites: React.FC<MyFavoritesProps> = ({
       setLoading(true);
       const contentType = filter === 'all' ? undefined : filter as any;
       const favs = await supabaseService.getFavorites(contentType);
+      
+      console.log('收藏数据:', favs);
       setFavorites(favs);
 
       // Load detailed information for each favorite
@@ -44,14 +60,25 @@ export const MyFavorites: React.FC<MyFavoritesProps> = ({
             } else if (fav.content_type === 'event') {
               item = await supabaseService.getEventById(fav.content_id);
             }
+            
+            if (item) {
+              return { 
+                ...item, 
+                _type: fav.content_type, 
+                _favoriteTime: fav.created_at,
+                _favoriteId: fav.id
+              };
+            }
           } catch (error) {
-            console.error('加载收藏详情失败:', error);
+            console.error('加载收藏详情失败:', fav.content_id, error);
           }
-          return item ? { ...item, _type: fav.content_type, _favoriteTime: fav.created_at } : null;
+          return null;
         })
       );
 
-      setDetailedFavorites(detailed.filter(item => item !== null));
+      const validItems = detailed.filter(item => item !== null);
+      console.log('详细收藏数据:', validItems);
+      setDetailedFavorites(validItems);
     } catch (error) {
       console.error('加载收藏失败:', error);
     } finally {
@@ -149,8 +176,14 @@ export const MyFavorites: React.FC<MyFavoritesProps> = ({
             <div className="text-gray-400 font-medium mb-2">
               {filter === 'all' ? '还没有收藏任何内容' : `还没有收藏${getTypeLabel(filter)}`}
             </div>
-            <div className="text-gray-300 text-sm">
+            <div className="text-gray-300 text-sm mb-4">
               点击内容右上角的书签图标即可收藏
+            </div>
+            {/* 调试信息 */}
+            <div className="text-xs text-gray-400 mt-4 p-4 bg-gray-100 rounded-lg">
+              <div>原始收藏数: {favorites.length}</div>
+              <div>详细收藏数: {detailedFavorites.length}</div>
+              <div>当前用户ID: {getCurrentUserId() || '未登录'}</div>
             </div>
           </div>
         ) : (
