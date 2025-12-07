@@ -116,22 +116,21 @@ export const MyFavorites: React.FC<MyFavoritesProps> = ({
           {/* Filter Tabs */}
           <div className="flex space-x-2 overflow-x-auto no-scrollbar pb-2">
             {[
-              { value: 'all', label: '全部', icon: '📚' },
-              { value: 'video', label: '视频', icon: '🎥' },
-              { value: 'news', label: '文章', icon: '📰' },
-              { value: 'event', label: '活动', icon: '🎉' }
+              { value: 'all', label: '全部' },
+              { value: 'video', label: '视频' },
+              { value: 'news', label: '文章' },
+              { value: 'event', label: '活动' }
             ].map(tab => (
               <button
                 key={tab.value}
                 onClick={() => setFilter(tab.value as any)}
-                className={`flex items-center space-x-1 px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all ${
+                className={`px-5 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all ${
                   filter === tab.value
                     ? 'bg-brand-600 text-white shadow-md'
                     : 'bg-gray-100 text-gray-600'
                 }`}
               >
-                <span>{tab.icon}</span>
-                <span>{tab.label}</span>
+                {tab.label}
               </button>
             ))}
           </div>
