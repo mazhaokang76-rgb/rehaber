@@ -274,39 +274,11 @@ export const Home: React.FC = () => {
                     <h3 className="text-sm font-bold text-gray-800 leading-snug line-clamp-2">{video.title}</h3>
                   </div>
                   <div className="flex items-center justify-between mt-2">
-                    <div className="flex items-center space-x-1.5 flex-1 min-w-0 mr-2">
-                      <img src={video.authorAvatar} alt={video.author} className="w-5 h-5 rounded-full flex-shrink-0" />
-                      <span className="text-xs text-gray-500 truncate">{video.author}</span>
+                    <div className="flex items-center space-x-1.5">
+                      <img src={video.authorAvatar} alt={video.author} className="w-5 h-5 rounded-full" />
+                      <span className="text-xs text-gray-500 truncate max-w-[80px]">{video.author}</span>
                     </div>
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleFavorite(video.id, 'video');
-                        }}
-                        className="p-1 hover:bg-gray-100 rounded-full transition-colors"
-                      >
-                        <Bookmark
-                          size={14}
-                          className={video.isFavorited ? 'text-yellow-500 fill-yellow-500' : 'text-gray-400'}
-                        />
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleLike(video.id, 'video');
-                        }}
-                        className="flex items-center gap-1 hover:bg-gray-100 rounded-full transition-colors px-1.5 py-1"
-                      >
-                        <Heart
-                          size={14}
-                          className={video.isLiked ? 'text-red-500 fill-red-500' : 'text-gray-400'}
-                        />
-                        {video.likesCount && video.likesCount > 0 && (
-                          <span className="text-[10px] text-gray-500 leading-none">{video.likesCount}</span>
-                        )}
-                      </button>
-                    </div>
+                    <span className="text-[10px] text-gray-400">{video.views} 次观看</span>
                   </div>
                 </div>
               </div>
