@@ -92,9 +92,28 @@ export const EventDetail: React.FC<EventDetailProps> = ({ eventId, onBack }) => 
     }
   };
 
-  const handleJoin = () => {
-    setJoined(!joined);
-    alert(joined ? '已取消报名' : '报名成功！');
+  const handleJoin = async () => {
+    try {
+      setRegistering(true);
+      const isRegistered = await supabaseService.registerEvent(eventId);
+      setJoined(isRegistered);
+      
+      if (isRegistered) {
+        // 显示成功提示
+        const notification = document.createElement('div');
+        notification.className = 'fixed top-20 left-1/2 transform -translate-x-1/2 bg-brand-600 text-white px-6 py-3 rounded-full shadow-lg z-50';
+        notification.innerHTML = '✅ 报名成功！我们会在活动开始前提醒你';
+        document.body.appendChild(notification);
+        setTimeout(() => notification.remove(), 3000);
+      } else {
+        alert('已取消报名');
+      }
+    } catch (error) {
+      console.error('报名失败:', error);
+      alert('操作失败，请重试');
+    } finally {
+      setRegistering(false);
+    }
   };
 
   if (loading) {
@@ -347,13 +366,14 @@ export const EventDetail: React.FC<EventDetailProps> = ({ eventId, onBack }) => 
           </div>
           <button
             onClick={handleJoin}
-            className={`px-8 py-3 rounded-xl font-bold shadow-lg transition-all ${
+            disabled={registering}
+            className={`px-8 py-3 rounded-xl font-bold shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
               joined
                 ? 'bg-gray-200 text-gray-600'
                 : 'bg-brand-600 text-white hover:bg-brand-700 shadow-brand-200'
             }`}
           >
-            {joined ? '已报名' : '立即报名'}
+            {registering ? '处理中...' : joined ? '已报名' : '我要报名'}
           </button>
         </div>
       </div>
