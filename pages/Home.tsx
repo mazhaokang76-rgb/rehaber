@@ -1,13 +1,13 @@
-// pages/Home.tsx - 增强版首页，集成所有新功能
+// pages/Home.tsx - 集成搜索和通知的首页
 import React, { useState, useEffect } from 'react';
 import { Play, Clock, ChevronRight, Search, Bookmark, Heart } from 'lucide-react';
 import { supabaseService } from '../services/supabase';
 import type { Video, NewsItem } from '../services/supabase';
 import { VideoDetail } from '../components/VideoDetail';
 import { NewsDetail } from '../components/NewsDetail';
-import { SearchFilter } from '../components/SearchFilter';
-import { NotificationBell } from '../components/Notifications';
+import { SearchResults } from '../components/SearchResults';
 import { Notifications } from '../components/Notifications';
+import { NotificationBell } from '../components/Notifications';
 
 export const Home: React.FC = () => {
   const [activeCategory, setActiveCategory] = useState('全部');
@@ -19,7 +19,6 @@ export const Home: React.FC = () => {
   const [selectedNewsId, setSelectedNewsId] = useState<string | null>(null);
   const [showSearch, setShowSearch] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
-  const [searchResults, setSearchResults] = useState<any[]>([]);
 
   const categories = ['全部', '复健', '核心', '有氧', '柔韧性'];
   
@@ -57,20 +56,10 @@ export const Home: React.FC = () => {
     }
   };
 
-  const handleSearch = async (query: string, filters: any) => {
-    try {
-      const results = await supabaseService.searchContent(query, undefined, filters);
-      setSearchResults(results);
-    } catch (error) {
-      console.error('搜索失败:', error);
-    }
-  };
-
   const handleFavorite = async (contentId: string, contentType: 'video' | 'news') => {
     try {
       const isFavorited = await supabaseService.toggleFavorite(contentId, contentType);
       
-      // 更新本地状态
       if (contentType === 'video') {
         setVideos(prev =>
           prev.map(v => v.id === contentId ? { ...v, isFavorited } : v)
@@ -90,7 +79,6 @@ export const Home: React.FC = () => {
     try {
       const isLiked = await supabaseService.toggleLike(contentId, contentType);
       
-      // 更新本地状态
       if (contentType === 'video') {
         setVideos(prev =>
           prev.map(v => 
@@ -117,6 +105,7 @@ export const Home: React.FC = () => {
     ? videos 
     : videos.filter(v => v.category === categoryMap[activeCategory]);
 
+  // 页面路由
   if (selectedVideoId) {
     return (
       <VideoDetail
@@ -137,9 +126,20 @@ export const Home: React.FC = () => {
 
   if (showSearch) {
     return (
-      <SearchFilter
-        onSearch={handleSearch}
-        onClose={() => setShowSearch(false)}
+      <SearchResults
+        onBack={() => setShowSearch(false)}
+        onSelectVideo={(id) => {
+          setShowSearch(false);
+          setSelectedVideoId(id);
+        }}
+        onSelectNews={(id) => {
+          setShowSearch(false);
+          setSelectedNewsId(id);
+        }}
+        onSelectEvent={(id) => {
+          setShowSearch(false);
+          // 处理活动选择
+        }}
       />
     );
   }
@@ -167,10 +167,10 @@ export const Home: React.FC = () => {
       {/* Header Section */}
       <div className="bg-brand-600 text-white p-6 rounded-b-3xl shadow-lg relative overflow-hidden">
         {/* Header Actions */}
-        <div className="absolute top-4 right-4 flex items-center space-x-2">
+        <div className="absolute top-4 right-4 flex items-center space-x-2 z-20">
           <button
             onClick={() => setShowSearch(true)}
-            className="p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors"
+            className="p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors backdrop-blur-sm"
           >
             <Search size={20} />
           </button>
@@ -186,7 +186,7 @@ export const Home: React.FC = () => {
         <h1 className="text-2xl font-bold mb-1 relative z-10">欢迎回来，{currentUser.name}!</h1>
         <p className="text-brand-100 text-sm mb-6 relative z-10">准备好开始今天的康复训练了吗？</p>
 
-        <div className="bg-white/10 backdrop-blur-md rounded-xl p-4 border border-white/20 flex items-center justify-between">
+        <div className="bg-white/10 backdrop-blur-md rounded-xl p-4 border border-white/20 flex items-center justify-between relative z-10">
             <div>
               <div className="text-xs text-brand-100">今日目标</div>
               <div className="text-xl font-bold">30 分钟</div>
@@ -238,7 +238,7 @@ export const Home: React.FC = () => {
               >
                 {/* Progress Bar */}
                 {video.progress && video.progress > 0 && (
-                  <div className="absolute top-0 left-0 right-0 h-1 bg-gray-200">
+                  <div className="absolute top-0 left-0 right-0 h-1 bg-gray-200 z-10">
                     <div
                       className="h-full bg-brand-600"
                       style={{ width: `${video.progress}%` }}
@@ -247,8 +247,12 @@ export const Home: React.FC = () => {
                 )}
 
                 <div
-                  className="w-1/3 relative"
+                  className="w-1/3 relative overflow-hidden"
                   onClick={() => setSelectedVideoId(video.id)}
+                  style={{ 
+                    borderTopLeftRadius: '12px', 
+                    borderBottomLeftRadius: '12px' 
+                  }}
                 >
                   <img src={video.thumbnail} alt={video.title} className="w-full h-full object-cover" />
                   <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
@@ -270,20 +274,20 @@ export const Home: React.FC = () => {
                     <h3 className="text-sm font-bold text-gray-800 leading-snug line-clamp-2">{video.title}</h3>
                   </div>
                   <div className="flex items-center justify-between mt-2">
-                    <div className="flex items-center space-x-1.5">
-                      <img src={video.authorAvatar} alt={video.author} className="w-5 h-5 rounded-full" />
-                      <span className="text-xs text-gray-500 truncate max-w-[80px]">{video.author}</span>
+                    <div className="flex items-center space-x-1.5 flex-1 min-w-0">
+                      <img src={video.authorAvatar} alt={video.author} className="w-5 h-5 rounded-full flex-shrink-0" />
+                      <span className="text-xs text-gray-500 truncate">{video.author}</span>
                     </div>
-                    <div className="flex items-center space-x-2">
+                    <div className="flex items-center space-x-3 flex-shrink-0 ml-2">
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
                           handleFavorite(video.id, 'video');
                         }}
-                        className="p-1 hover:bg-gray-100 rounded-full transition-colors"
+                        className="flex items-center space-x-0.5 hover:bg-gray-100 rounded-full transition-colors px-1.5 py-1"
                       >
                         <Bookmark
-                          size={14}
+                          size={13}
                           className={video.isFavorited ? 'text-yellow-500 fill-yellow-500' : 'text-gray-400'}
                         />
                       </button>
@@ -292,14 +296,14 @@ export const Home: React.FC = () => {
                           e.stopPropagation();
                           handleLike(video.id, 'video');
                         }}
-                        className="p-1 hover:bg-gray-100 rounded-full transition-colors flex items-center space-x-1"
+                        className="flex items-center space-x-0.5 hover:bg-gray-100 rounded-full transition-colors px-1.5 py-1"
                       >
                         <Heart
-                          size={14}
+                          size={13}
                           className={video.isLiked ? 'text-red-500 fill-red-500' : 'text-gray-400'}
                         />
                         {video.likesCount && video.likesCount > 0 && (
-                          <span className="text-[8px] text-gray-400">{video.likesCount}</span>
+                          <span className="text-[9px] text-gray-500 min-w-[12px] text-center">{video.likesCount}</span>
                         )}
                       </button>
                     </div>
@@ -325,10 +329,10 @@ export const Home: React.FC = () => {
                   e.stopPropagation();
                   handleFavorite(latestNews.id, 'news');
                 }}
-                className="p-1.5 bg-white hover:bg-gray-50 rounded-full transition-colors shadow-sm"
+                className="flex items-center space-x-0.5 bg-white hover:bg-gray-50 rounded-full transition-colors shadow-sm px-2 py-1.5"
               >
                 <Bookmark
-                  size={14}
+                  size={12}
                   className={latestNews.isFavorited ? 'text-yellow-500 fill-yellow-500' : 'text-gray-500'}
                 />
               </button>
@@ -337,23 +341,26 @@ export const Home: React.FC = () => {
                   e.stopPropagation();
                   handleLike(latestNews.id, 'news');
                 }}
-                className="p-1.5 bg-white hover:bg-gray-50 rounded-full transition-colors shadow-sm"
+                className="flex items-center space-x-1 bg-white hover:bg-gray-50 rounded-full transition-colors shadow-sm px-2 py-1.5"
               >
                 <Heart
-                  size={14}
+                  size={12}
                   className={latestNews.isLiked ? 'text-red-500 fill-red-500' : 'text-gray-500'}
                 />
+                {latestNews.likesCount && latestNews.likesCount > 0 && (
+                  <span className="text-[9px] text-gray-600 min-w-[12px] text-center font-medium">{latestNews.likesCount}</span>
+                )}
               </button>
             </div>
             <div className="flex items-start space-x-3 mb-3">
-              <div className="flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden bg-gray-200">
+              <div className="flex-shrink-0 w-16 h-16 overflow-hidden bg-gray-200" style={{ borderRadius: '8px' }}>
                 <img 
                   src={latestNews.coverImage} 
                   alt={latestNews.title}
                   className="w-full h-full object-cover"
                 />
               </div>
-              <div className="flex-1 pr-20">
+              <div className="flex-1 pr-24">
                 <div className="flex items-center space-x-2 mb-1">
                   <span className="text-[10px] px-2 py-0.5 bg-brand-600 text-white rounded-full font-medium">
                     {latestNews.category}
