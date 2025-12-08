@@ -228,7 +228,7 @@ export const Home: React.FC = () => {
         </div>
         
         <div className="space-y-4">
-          {filteredVideos.length === 0 ? (
+          {filteredVideos.length === 10 ? (
             <div className="text-center py-10 text-gray-400">暂无视频</div>
           ) : (
             filteredVideos.slice(0, 5).map(video => (
