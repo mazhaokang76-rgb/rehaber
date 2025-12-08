@@ -8,23 +8,34 @@ import { EventDetail } from '../components/EventDetail';
 export const Community: React.FC = () => {
   const [filter, setFilter] = useState<'动态' | '附近' | '我的活动'>('动态');
   const [events, setEvents] = useState<Event[]>([]);
+  const [myEvents, setMyEvents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
 
   useEffect(() => {
     loadEvents();
-  }, []);
+  }, [filter]);
 
   const loadEvents = async () => {
     try {
       setLoading(true);
-      console.log('🔄 开始加载活动列表...');
-      const data = await supabaseService.getEvents();
-      console.log('✅ 成功加载活动:', data.length, data);
-      setEvents(data);
+      console.log('🔄 开始加载活动列表...', filter);
+      
+      if (filter === '我的活动') {
+        // 加载用户报名的活动
+        const data = await supabaseService.getMyEventRegistrations();
+        console.log('✅ 成功加载我的活动:', data.length, data);
+        setMyEvents(data);
+      } else {
+        // 加载所有活动
+        const data = await supabaseService.getEvents();
+        console.log('✅ 成功加载活动:', data.length, data);
+        setEvents(data);
+      }
     } catch (error) {
       console.error('❌ 加载活动失败:', error);
       setEvents([]);
+      setMyEvents([]);
     } finally {
       setLoading(false);
     }
