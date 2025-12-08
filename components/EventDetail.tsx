@@ -1,9 +1,9 @@
-// components/EventDetail.tsx - 增强版活动详情页
+// components/EventDetail.tsx - 完整重写版本
 import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Share2, Heart, MapPin, Calendar, Users, Bookmark } from 'lucide-react';
 import { supabaseService } from '../services/supabase';
 import type { Event } from '../services/supabase';
-import { Comments } from './Comments'; // 新增：导入评论组件
+import { Comments } from './Comments';
 
 interface EventDetailProps {
   eventId: string;
@@ -13,26 +13,37 @@ interface EventDetailProps {
 export const EventDetail: React.FC<EventDetailProps> = ({ eventId, onBack }) => {
   const [event, setEvent] = useState<Event | null>(null);
   const [liked, setLiked] = useState(false);
-  const [favorited, setFavorited] = useState(false); // 新增：收藏状态
+  const [favorited, setFavorited] = useState(false);
   const [joined, setJoined] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [registering, setRegistering] = useState(false);
 
   useEffect(() => {
+    console.log('🔄 EventDetail 组件已挂载，eventId:', eventId);
     loadEventDetail();
   }, [eventId]);
 
   const loadEventDetail = async () => {
     try {
       setLoading(true);
+      console.log('🔍 正在加载活动详情...', eventId);
+      
       const data = await supabaseService.getEventById(eventId);
+      console.log('📦 获取到的活动数据:', data);
+      
       if (data) {
         setEvent(data);
-        setLiked(data.isLiked || false); // 新增：设置点赞状态
-        setFavorited(data.isFavorited || false); // 新增：设置收藏状态
-        setJoined(data.joined);
+        setLiked(data.isLiked || false);
+        setFavorited(data.isFavorited || false);
+        setJoined(data.joined || false);
+        console.log('✅ 活动详情加载成功');
+      } else {
+        console.warn('⚠️ 未找到活动数据');
+        setEvent(null);
       }
     } catch (error) {
-      console.error('加载活动失败:', error);
+      console.error('❌ 加载活动失败:', error);
+      setEvent(null);
     } finally {
       setLoading(false);
     }
@@ -48,18 +59,19 @@ export const EventDetail: React.FC<EventDetailProps> = ({ eventId, onBack }) => 
     try {
       if (navigator.share) {
         await navigator.share(shareData);
+        console.log('✅ 分享成功');
       } else {
         await navigator.clipboard.writeText(window.location.href);
         alert('链接已复制到剪贴板！');
       }
     } catch (error) {
-      console.error('分享失败:', error);
+      console.error('❌ 分享失败:', error);
     }
   };
 
-  // 新增：处理点赞
   const handleLike = async () => {
     try {
+      console.log('👍 切换点赞状态...');
       const isLiked = await supabaseService.toggleLike(eventId, 'event');
       setLiked(isLiked);
       if (event) {
@@ -69,15 +81,16 @@ export const EventDetail: React.FC<EventDetailProps> = ({ eventId, onBack }) => 
           likes: event.likes + (isLiked ? 1 : -1)
         });
       }
+      console.log('✅ 点赞成功:', isLiked);
     } catch (error) {
-      console.error('点赞失败:', error);
+      console.error('❌ 点赞失败:', error);
       alert('操作失败，请重试');
     }
   };
 
-  // 新增：处理收藏
   const handleFavorite = async () => {
     try {
+      console.log('⭐ 切换收藏状态...');
       const isFavorited = await supabaseService.toggleFavorite(eventId, 'event');
       setFavorited(isFavorited);
       if (event) {
@@ -86,8 +99,9 @@ export const EventDetail: React.FC<EventDetailProps> = ({ eventId, onBack }) => 
           isFavorited
         });
       }
+      console.log('✅ 收藏成功:', isFavorited);
     } catch (error) {
-      console.error('收藏失败:', error);
+      console.error('❌ 收藏失败:', error);
       alert('操作失败，请重试');
     }
   };
@@ -95,6 +109,7 @@ export const EventDetail: React.FC<EventDetailProps> = ({ eventId, onBack }) => 
   const handleJoin = async () => {
     try {
       setRegistering(true);
+      console.log('📝 切换报名状态...');
       const isRegistered = await supabaseService.registerEvent(eventId);
       setJoined(isRegistered);
       
@@ -105,11 +120,13 @@ export const EventDetail: React.FC<EventDetailProps> = ({ eventId, onBack }) => 
         notification.innerHTML = '✅ 报名成功！我们会在活动开始前提醒你';
         document.body.appendChild(notification);
         setTimeout(() => notification.remove(), 3000);
+        console.log('✅ 报名成功');
       } else {
         alert('已取消报名');
+        console.log('✅ 取消报名成功');
       }
     } catch (error) {
-      console.error('报名失败:', error);
+      console.error('❌ 报名失败:', error);
       alert('操作失败，请重试');
     } finally {
       setRegistering(false);
@@ -118,8 +135,9 @@ export const EventDetail: React.FC<EventDetailProps> = ({ eventId, onBack }) => 
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen bg-gray-50">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-600"></div>
+      <div className="flex flex-col items-center justify-center h-screen bg-gray-50">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-600 mb-4"></div>
+        <div className="text-gray-500 font-medium">加载中...</div>
       </div>
     );
   }
@@ -127,8 +145,14 @@ export const EventDetail: React.FC<EventDetailProps> = ({ eventId, onBack }) => 
   if (!event) {
     return (
       <div className="flex flex-col items-center justify-center h-screen bg-gray-50">
-        <div className="text-gray-400 mb-4">活动不存在</div>
-        <button onClick={onBack} className="text-brand-600 font-bold">返回</button>
+        <div className="text-6xl mb-4">😕</div>
+        <div className="text-gray-400 mb-4 font-medium">活动不存在</div>
+        <button 
+          onClick={onBack} 
+          className="text-brand-600 font-bold px-6 py-2 bg-brand-50 rounded-full hover:bg-brand-100 transition-colors"
+        >
+          返回
+        </button>
       </div>
     );
   }
@@ -145,7 +169,6 @@ export const EventDetail: React.FC<EventDetailProps> = ({ eventId, onBack }) => 
             <ArrowLeft size={24} className="text-gray-700" />
           </button>
           <div className="flex items-center space-x-2">
-            {/* 新增：收藏按钮 */}
             <button
               onClick={handleFavorite}
               className="p-2 hover:bg-gray-100 rounded-full transition-colors"
@@ -155,7 +178,6 @@ export const EventDetail: React.FC<EventDetailProps> = ({ eventId, onBack }) => 
                 className={favorited ? 'text-yellow-500 fill-yellow-500' : 'text-gray-700'}
               />
             </button>
-            {/* 修改：点赞按钮调用新的处理函数 */}
             <button
               onClick={handleLike}
               className="p-2 hover:bg-gray-100 rounded-full transition-colors"
@@ -181,10 +203,14 @@ export const EventDetail: React.FC<EventDetailProps> = ({ eventId, onBack }) => 
           src={event.image}
           alt={event.title}
           className="w-full h-full object-cover"
+          onError={(e) => {
+            console.warn('封面图片加载失败:', event.image);
+            e.currentTarget.src = 'https://picsum.photos/400/300';
+          }}
         />
         <div className="absolute bottom-4 left-4 right-4">
           <div className="flex flex-wrap gap-2">
-            {event.tags.map((tag, index) => (
+            {event.tags && event.tags.map((tag, index) => (
               <span
                 key={index}
                 className="bg-white/90 backdrop-blur-sm text-brand-600 text-xs font-bold px-3 py-1 rounded-full shadow-lg"
@@ -237,13 +263,12 @@ export const EventDetail: React.FC<EventDetailProps> = ({ eventId, onBack }) => 
             </div>
           </div>
 
-          {/* Stats - 修改：显示真实的点赞和评论数 */}
+          {/* Stats */}
           <div className="flex items-center space-x-6 mb-6 pb-6 border-b border-gray-100">
             <div className="flex items-center text-gray-600">
               <Heart size={18} className="mr-2" />
               <span className="text-sm">{event.likes} 人感兴趣</span>
             </div>
-            {/* 新增：显示评论数 */}
             <div className="flex items-center text-gray-600">
               <span className="text-sm">{event.commentsCount || 0} 条评论</span>
             </div>
@@ -269,7 +294,7 @@ export const EventDetail: React.FC<EventDetailProps> = ({ eventId, onBack }) => 
               {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
                 <img
                   key={i}
-                  src={`https://picsum.photos/seed/user${i}/100/100`}
+                  src={`https://api.dicebear.com/7.x/avataaars/svg?seed=user${i}`}
                   alt="参与者"
                   className="w-10 h-10 rounded-full border-2 border-white"
                 />
@@ -293,7 +318,7 @@ export const EventDetail: React.FC<EventDetailProps> = ({ eventId, onBack }) => 
             </div>
           </div>
 
-          {/* 新增：快捷操作栏 */}
+          {/* Quick Actions */}
           <div className="flex items-center justify-center space-x-3 py-6 border-t border-b border-gray-100 mb-6">
             <button
               onClick={handleLike}
@@ -349,7 +374,7 @@ export const EventDetail: React.FC<EventDetailProps> = ({ eventId, onBack }) => 
         </div>
       </div>
 
-      {/* 新增：评论区 - 添加在内容底部，Fixed Button 之前 */}
+      {/* Comments Section */}
       <div className="mt-4 mb-20">
         <Comments 
           contentId={eventId} 
