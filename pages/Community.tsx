@@ -106,7 +106,7 @@ export const EventDetail: React.FC<EventDetailProps> = ({ eventId, onBack }) => 
     }
   };
 
- const handleJoin = async () => {
+  const handleJoin = async () => {
     try {
       setRegistering(true);
       console.log('📝 切换报名状态...');
@@ -116,25 +116,14 @@ export const EventDetail: React.FC<EventDetailProps> = ({ eventId, onBack }) => 
       if (isRegistered) {
         // 显示成功提示
         const notification = document.createElement('div');
-        notification.className = 'fixed top-20 left-1/2 transform -translate-x-1/2 bg-brand-600 text-white px-6 py-3 rounded-full shadow-lg z-50 animate-bounce';
+        notification.className = 'fixed top-20 left-1/2 transform -translate-x-1/2 bg-brand-600 text-white px-6 py-3 rounded-full shadow-lg z-50';
         notification.innerHTML = '✅ 报名成功！我们会在活动开始前提醒你';
         document.body.appendChild(notification);
         setTimeout(() => notification.remove(), 3000);
         console.log('✅ 报名成功');
-        
-        // 刷新活动数据以获取最新的报名状态
-        await loadEventDetail();
       } else {
-        // 显示取消提示
-        const notification = document.createElement('div');
-        notification.className = 'fixed top-20 left-1/2 transform -translate-x-1/2 bg-gray-600 text-white px-6 py-3 rounded-full shadow-lg z-50';
-        notification.innerHTML = 'ℹ️ 已取消报名';
-        document.body.appendChild(notification);
-        setTimeout(() => notification.remove(), 2000);
+        alert('已取消报名');
         console.log('✅ 取消报名成功');
-        
-        // 刷新活动数据
-        await loadEventDetail();
       }
     } catch (error) {
       console.error('❌ 报名失败:', error);
