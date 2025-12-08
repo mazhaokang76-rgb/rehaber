@@ -228,7 +228,7 @@ export const Home: React.FC = () => {
         </div>
         
         <div className="space-y-4">
-          {filteredVideos.length === 10 ? (
+          {filteredVideos.length === 0 ? (
             <div className="text-center py-10 text-gray-400">暂无视频</div>
           ) : (
             filteredVideos.slice(0, 5).map(video => (
@@ -237,7 +237,7 @@ export const Home: React.FC = () => {
                 className="bg-white rounded-xl shadow-sm overflow-hidden flex active:scale-[0.99] transition-transform duration-100 cursor-pointer relative"
               >
                 {/* Progress Bar */}
-                {video.progress && video.progress > 0 && (
+                {video.progress > 0 && (
                   <div className="absolute top-0 left-0 right-0 h-1 bg-gray-200 z-10">
                     <div
                       className="h-full bg-brand-600"
