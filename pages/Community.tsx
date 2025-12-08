@@ -1,4 +1,4 @@
-// pages/Community.tsx
+// pages/Community.tsx - 完整重写版本
 import React, { useState, useEffect } from 'react';
 import { MapPin, Calendar, Users, Heart, Search } from 'lucide-react';
 import { supabaseService } from '../services/supabase';
@@ -18,29 +18,45 @@ export const Community: React.FC = () => {
   const loadEvents = async () => {
     try {
       setLoading(true);
+      console.log('🔄 开始加载活动列表...');
       const data = await supabaseService.getEvents();
+      console.log('✅ 成功加载活动:', data.length, data);
       setEvents(data);
     } catch (error) {
-      console.error('加载活动失败:', error);
+      console.error('❌ 加载活动失败:', error);
+      setEvents([]);
     } finally {
       setLoading(false);
     }
   };
 
+  const handleEventClick = (eventId: string) => {
+    console.log('🎯 点击活动:', eventId);
+    setSelectedEventId(eventId);
+  };
+
+  const handleBack = () => {
+    console.log('↩️ 返回社区列表');
+    setSelectedEventId(null);
+    loadEvents(); // 刷新列表
+  };
+
   // 如果选中了活动，显示详情页
   if (selectedEventId) {
+    console.log('📄 显示活动详情页:', selectedEventId);
     return (
       <EventDetail
         eventId={selectedEventId}
-        onBack={() => setSelectedEventId(null)}
+        onBack={handleBack}
       />
     );
   }
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-600"></div>
+      <div className="flex flex-col items-center justify-center h-screen bg-gray-50">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-600 mb-4"></div>
+        <div className="text-gray-500 font-medium">加载中...</div>
       </div>
     );
   }
@@ -50,41 +66,42 @@ export const Community: React.FC = () => {
       {/* Sticky Header */}
       <div className="bg-white sticky top-0 z-20 px-4 py-3 shadow-sm">
         <div className="flex items-center justify-between mb-4">
-            <h1 className="text-2xl font-bold text-gray-900">社区</h1>
-            <button className="bg-brand-50 text-brand-600 p-2 rounded-full">
-                <Search size={20} />
-            </button>
+          <h1 className="text-2xl font-bold text-gray-900">社区</h1>
+          <button className="bg-brand-50 text-brand-600 p-2 rounded-full hover:bg-brand-100 transition-colors">
+            <Search size={20} />
+          </button>
         </div>
         
         <div className="flex space-x-6 border-b border-gray-100">
-            {['动态', '附近', '我的活动'].map((tab) => (
-                <button
-                    key={tab}
-                    onClick={() => setFilter(tab as any)}
-                    className={`pb-3 text-sm font-medium transition-colors relative ${
-                        filter === tab ? 'text-brand-600' : 'text-gray-400'
-                    }`}
-                >
-                    {tab}
-                    {filter === tab && (
-                        <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-brand-600 rounded-full"></div>
-                    )}
-                </button>
-            ))}
+          {['动态', '附近', '我的活动'].map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setFilter(tab as any)}
+              className={`pb-3 text-sm font-medium transition-colors relative ${
+                filter === tab ? 'text-brand-600' : 'text-gray-400'
+              }`}
+            >
+              {tab}
+              {filter === tab && (
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-brand-600 rounded-full"></div>
+              )}
+            </button>
+          ))}
         </div>
       </div>
 
       <div className="p-4 space-y-6">
         {/* Create Post Prompt */}
         <div className="bg-white rounded-xl p-4 shadow-sm flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-full bg-gray-200 overflow-hidden">
-                 <img src="https://picsum.photos/seed/user_alex/200/200" alt="User" />
-            </div>
-            <div className="flex-1 bg-gray-100 rounded-full px-4 py-2 text-sm text-gray-500">
-                分享你的康复进展...
-            </div>
+          <div className="w-10 h-10 rounded-full bg-gray-200 overflow-hidden">
+            <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=user" alt="User" className="w-full h-full" />
+          </div>
+          <div className="flex-1 bg-gray-100 rounded-full px-4 py-2 text-sm text-gray-500">
+            分享你的康复进展...
+          </div>
         </div>
 
+        {/* Events List */}
         {events.length === 0 ? (
           <div className="text-center py-20">
             <div className="text-6xl mb-4">🏃‍♂️</div>
@@ -95,72 +112,80 @@ export const Community: React.FC = () => {
           events.map(event => (
             <div
               key={event.id}
-              onClick={() => setSelectedEventId(event.id)}
+              onClick={() => handleEventClick(event.id)}
               className="bg-white rounded-2xl shadow-sm overflow-hidden cursor-pointer hover:shadow-md transition-all active:scale-[0.99]"
             >
-                <div className="relative h-48">
-                    <img src={event.image} alt={event.title} className="w-full h-full object-cover" />
-                    <div className="absolute top-3 left-3 bg-white/90 backdrop-blur text-xs font-bold px-2 py-1 rounded-md text-gray-800 shadow-sm">
-                        {event.tags && event.tags.length > 0 ? event.tags[0] : '活动'}
-                    </div>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        alert('已收藏');
-                      }}
-                      className="absolute top-3 right-3 bg-black/40 hover:bg-brand-500/80 text-white p-2 rounded-full backdrop-blur transition-colors"
-                    >
-                        <Heart size={18} fill={event.joined ? "currentColor" : "none"} className={event.joined ? "text-red-500" : ""} />
-                    </button>
+              <div className="relative h-48">
+                <img 
+                  src={event.image} 
+                  alt={event.title} 
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    console.warn('图片加载失败:', event.image);
+                    e.currentTarget.src = 'https://picsum.photos/400/300';
+                  }}
+                />
+                <div className="absolute top-3 left-3 bg-white/90 backdrop-blur text-xs font-bold px-2 py-1 rounded-md text-gray-800 shadow-sm">
+                  {event.tags && event.tags.length > 0 ? event.tags[0] : '活动'}
                 </div>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    console.log('❤️ 收藏活动:', event.id);
+                  }}
+                  className="absolute top-3 right-3 bg-black/40 hover:bg-brand-500/80 text-white p-2 rounded-full backdrop-blur transition-colors"
+                >
+                  <Heart size={18} fill={event.joined ? "currentColor" : "none"} className={event.joined ? "text-red-500" : ""} />
+                </button>
+              </div>
+              
+              <div className="p-5">
+                <h2 className="text-lg font-bold text-gray-900 mb-2">{event.title}</h2>
                 
-                <div className="p-5">
-                    <h2 className="text-lg font-bold text-gray-900 mb-2">{event.title}</h2>
-                    
-                    <div className="space-y-2 mb-4">
-                        <div className="flex items-center text-sm text-gray-500">
-                            <Calendar size={16} className="mr-2 text-brand-500" />
-                            {event.time}
-                        </div>
-                        <div className="flex items-center text-sm text-gray-500">
-                            <MapPin size={16} className="mr-2 text-brand-500" />
-                            {event.location}
-                        </div>
-                        <div className="flex items-center text-sm text-gray-500">
-                            <Users size={16} className="mr-2 text-brand-500" />
-                            {event.organizer}
-                        </div>
-                    </div>
-
-                    {event.description && (
-                      <p className="text-sm text-gray-600 line-clamp-2 mb-4 leading-relaxed">
-                        {event.description}
-                      </p>
-                    )}
-
-                    <div className="flex items-center justify-between border-t border-gray-50 pt-4">
-                         <div className="flex -space-x-2">
-                            {[1,2,3].map(i => (
-                                <div key={i} className="w-6 h-6 rounded-full border-2 border-white bg-gray-300 overflow-hidden">
-                                    <img src={`https://picsum.photos/seed/${i}/50/50`} alt="" />
-                                </div>
-                            ))}
-                            <div className="text-xs text-gray-500 pl-3 py-1">
-                                {event.likes} 人感兴趣
-                            </div>
-                         </div>
-                         
-                         <button
-                           onClick={(e) => {
-                             e.stopPropagation();
-                             setSelectedEventId(event.id);
-                           }}
-                           className="bg-brand-600 text-white px-5 py-2 rounded-full text-sm font-bold shadow-lg shadow-brand-200 hover:bg-brand-700 transition-colors"
-                         >
-                             查看详情
-                         </button>
-                    </div>
+                <div className="space-y-2 mb-4">
+                  <div className="flex items-center text-sm text-gray-500">
+                    <Calendar size={16} className="mr-2 text-brand-500" />
+                    {event.time}
+                  </div>
+                  <div className="flex items-center text-sm text-gray-500">
+                    <MapPin size={16} className="mr-2 text-brand-500" />
+                    {event.location}
+                  </div>
+                  <div className="flex items-center text-sm text-gray-500">
+                    <Users size={16} className="mr-2 text-brand-500" />
+                    {event.organizer}
+                  </div>
                 </div>
+
+                {event.description && (
+                  <p className="text-sm text-gray-600 line-clamp-2 mb-4 leading-relaxed">
+                    {event.description}
+                  </p>
+                )}
+
+                <div className="flex items-center justify-between border-t border-gray-50 pt-4">
+                  <div className="flex -space-x-2">
+                    {[1, 2, 3].map(i => (
+                      <div key={i} className="w-6 h-6 rounded-full border-2 border-white bg-gray-300 overflow-hidden">
+                        <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${i}`} alt="" className="w-full h-full" />
+                      </div>
+                    ))}
+                    <div className="text-xs text-gray-500 pl-3 py-1">
+                      {event.likes} 人感兴趣
+                    </div>
+                  </div>
+                  
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleEventClick(event.id);
+                    }}
+                    className="bg-brand-600 text-white px-5 py-2 rounded-full text-sm font-bold shadow-lg shadow-brand-200 hover:bg-brand-700 transition-colors"
+                  >
+                    查看详情
+                  </button>
+                </div>
+              </div>
             </div>
           ))
         )}
