@@ -278,7 +278,7 @@ export const Home: React.FC = () => {
                       <img src={video.authorAvatar} alt={video.author} className="w-5 h-5 rounded-full" />
                       <span className="text-xs text-gray-500 truncate max-w-[80px]">{video.author}</span>
                     </div>
-                   video.views > 0 &&  <span className="text-[10px] text-gray-400">{video.views} 次观看</span>
+                    {video.views > 0 &&  <span className="text-[10px] text-gray-400">{video.views} 次观看</span>}
                   </div>
                 </div>
               </div>
