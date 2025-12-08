@@ -228,41 +228,64 @@ export const Home: React.FC = () => {
         </div>
         
         <div className="space-y-4">
-          {filteredVideos.map(video => (
-            <div key={video.id} className="bg-white rounded-xl shadow-sm overflow-hidden flex active:scale-[0.99] transition-transform duration-100">
-              <div className="w-1/3 relative">
-                <img src={video.thumbnail} alt={video.title} className="w-full h-full object-cover" />
-                <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
-                  <div className="bg-white/30 backdrop-blur-sm p-1.5 rounded-full">
-                     <Play size={16} className="text-white fill-white" />
+          {filteredVideos.length === 0 ? (
+            <div className="text-center py-10 text-gray-400">暂无视频</div>
+          ) : (
+            filteredVideos.slice(0, 5).map(video => (
+              <div
+                key={video.id}
+                className="bg-white rounded-xl shadow-sm overflow-hidden flex active:scale-[0.99] transition-transform duration-100 cursor-pointer relative"
+              >
+                {/* Progress Bar */}
+                {video.progress && video.progress > 0 && (
+                  <div className="absolute top-0 left-0 right-0 h-1 bg-gray-200 z-10">
+                    <div
+                      className="h-full bg-brand-600"
+                      style={{ width: `${video.progress}%` }}
+                    ></div>
+                  </div>
+                )}
+
+                <div
+                  className="w-1/3 relative overflow-hidden"
+                  onClick={() => setSelectedVideoId(video.id)}
+                  style={{ 
+                    borderTopLeftRadius: '12px', 
+                    borderBottomLeftRadius: '12px' 
+                  }}
+                >
+                  <img src={video.thumbnail} alt={video.title} className="w-full h-full object-cover" />
+                  <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
+                    <div className="bg-white/30 backdrop-blur-sm p-1.5 rounded-full">
+                       <Play size={16} className="text-white fill-white" />
+                    </div>
+                  </div>
+                </div>
+                <div className="w-2/3 p-3 flex flex-col justify-between">
+                  <div onClick={() => setSelectedVideoId(video.id)}>
+                    <div className="flex items-center space-x-2 mb-1">
+                      <span className="text-[10px] px-1.5 py-0.5 bg-brand-50 text-brand-600 rounded font-medium border border-brand-100">
+                        {video.category === 'Rehab' ? '复健' : video.category === 'Core' ? '核心' : video.category === 'Cardio' ? '有氧' : video.category}
+                      </span>
+                      <span className="text-[10px] text-gray-400 flex items-center">
+                        <Clock size={10} className="mr-1" /> {video.duration}
+                      </span>
+                    </div>
+                    <h3 className="text-sm font-bold text-gray-800 leading-snug line-clamp-2">{video.title}</h3>
+                  </div>
+                  <div className="flex items-center justify-between mt-2">
+                    <div className="flex items-center space-x-1.5">
+                      <img src={video.authorAvatar} alt={video.author} className="w-5 h-5 rounded-full" />
+                      <span className="text-xs text-gray-500 truncate max-w-[80px]">{video.author}</span>
+                    </div>
+                    <span className="text-[10px] text-gray-400">{video.views} 次观看</span>
                   </div>
                 </div>
               </div>
-              <div className="w-2/3 p-3 flex flex-col justify-between">
-                <div>
-                  <div className="flex items-center space-x-2 mb-1">
-                    <span className="text-[10px] px-1.5 py-0.5 bg-brand-50 text-brand-600 rounded font-medium border border-brand-100">
-                      {video.category === 'Rehab' ? '复健' : video.category === 'Core' ? '核心' : '其他'}
-                    </span>
-                    <span className="text-[10px] text-gray-400 flex items-center">
-                      <Clock size={10} className="mr-1" /> {video.duration}
-                    </span>
-                  </div>
-                  <h3 className="text-sm font-bold text-gray-800 leading-snug line-clamp-2">{video.title}</h3>
-                </div>
-                <div className="flex items-center justify-between mt-2">
-                  <div className="flex items-center space-x-1.5">
-                    <img src={video.authorAvatar} alt={video.author} className="w-5 h-5 rounded-full" />
-                    <span className="text-xs text-gray-500 truncate max-w-[80px]">{video.author}</span>
-                  </div>
-                  <span className="text-[10px] text-gray-400">{video.views} 次观看</span>
-                </div>
-              </div>
-            </div>
-          ))}
+            ))
+          )}
         </div>
       </div>
-
 
       {/* Health Tips Preview */}
       <div className="px-4">
